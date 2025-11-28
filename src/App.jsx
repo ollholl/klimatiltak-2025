@@ -115,6 +115,8 @@ export default function KlimakurPrestigeDashboard() {
   });
   const [filterCat, setFilterCat] = useState("Alle");
   const [search, setSearch] = useState("");
+  const [sortColumn, setSortColumn] = useState(null); // null | "potensialMt" | "tiltak" | "kategori" | "kostnad"
+  const [sortDirection, setSortDirection] = useState("desc"); // "asc" | "desc"
 
   // --- Utvalg av tiltak (huke av/på) ----------------------------------------
   const [selected, setSelected] = useState(
@@ -125,13 +127,6 @@ export default function KlimakurPrestigeDashboard() {
     const set = new Set(MEASURES.map((m) => m.c));
     return ["Alle", ...Array.from(set)];
   }, []);
-
-  const measures = useMemo(() => {
-    const base = [...MEASURES, NULLTILTAK];
-    return base
-      .filter((m) => (filterCat === "Alle" ? true : m.c === filterCat))
-      .filter((m) => (search.trim() ? m.t.toLowerCase().includes(search.toLowerCase()) : true));
-  }, [filterCat, search]);
 
   // Kostnad per tiltak (mrd. kr)
   function itemCostMrd(m) {
@@ -150,6 +145,68 @@ export default function KlimakurPrestigeDashboard() {
       sumMrd: itemCostMrd(m),
     }));
   }, [unitCosts]);
+
+  // Map for rask oppslag av rows
+  const rowsMap = useMemo(() => {
+    return new Map(rowsAll.map((r) => [r.tiltak, r]));
+  }, [rowsAll]);
+
+  // Original rekkefølge basert på indeks
+  const originalOrder = useMemo(() => {
+    const base = [...MEASURES, NULLTILTAK];
+    return new Map(base.map((m, idx) => [m.t, idx]));
+  }, []);
+
+  const measures = useMemo(() => {
+    const base = [...MEASURES, NULLTILTAK];
+    let filtered = base
+      .filter((m) => (filterCat === "Alle" ? true : m.c === filterCat))
+      .filter((m) => (search.trim() ? m.t.toLowerCase().includes(search.toLowerCase()) : true));
+    
+    // Sortering
+    if (sortColumn) {
+      filtered = [...filtered].sort((a, b) => {
+        let aVal, bVal;
+        
+        if (sortColumn === "potensialMt") {
+          aVal = a.p;
+          bVal = b.p;
+        } else if (sortColumn === "tiltak") {
+          aVal = a.t;
+          bVal = b.t;
+        } else if (sortColumn === "kategori") {
+          aVal = a.c;
+          bVal = b.c;
+        } else if (sortColumn === "kostnad") {
+          const aRow = rowsMap.get(a.t);
+          const bRow = rowsMap.get(b.t);
+          if (!aRow || !bRow) return 0;
+          aVal = aRow.sumMrd;
+          bVal = bRow.sumMrd;
+        } else {
+          return 0;
+        }
+        
+        // Sortering: desc = høyest først, asc = lavest først
+        if (typeof aVal === "string") {
+          const comparison = aVal.localeCompare(bVal);
+          return sortDirection === "desc" ? -comparison : comparison;
+        } else {
+          // For numeriske verdier: desc = b - a (høyest først), asc = a - b (lavest først)
+          return sortDirection === "desc" ? bVal - aVal : aVal - bVal;
+        }
+      });
+    } else {
+      // Ingen sortering - bruk original rekkefølge
+      filtered = [...filtered].sort((a, b) => {
+        const aIdx = originalOrder.get(a.t) ?? 999;
+        const bIdx = originalOrder.get(b.t) ?? 999;
+        return aIdx - bIdx;
+      });
+    }
+    
+    return filtered;
+  }, [filterCat, search, sortColumn, sortDirection, rowsMap, originalOrder]);
 
   const rowsSelected = useMemo(() => {
     return rowsAll.filter((r) => selected.has(r.tiltak));
@@ -222,6 +279,28 @@ export default function KlimakurPrestigeDashboard() {
       for (const id of filteredIds) next.delete(id);
       return next;
     });
+  }
+
+  // --- Sortering -------------------------------------------------------------
+  function handleSort(column) {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  }
+
+  function resetSort() {
+    setSortColumn(null);
+    setSortDirection("desc");
+  }
+
+  function SortIcon({ column }) {
+    if (sortColumn !== column) {
+      return <span className="opacity-30">↕</span>;
+    }
+    return sortDirection === "asc" ? <span>↑</span> : <span>↓</span>;
   }
 
   // --- Dev sanity tests (run in dev/preview) ---------------------------------
@@ -539,6 +618,11 @@ export default function KlimakurPrestigeDashboard() {
                 <p className="text-xs italic opacity-75">
                   Tabell 3. Alle tiltak med kostnadsbøtte, potensial og kostnadsbidrag. Bruk avkrysningsboksene til å
                   inkludere/ekskludere tiltak fra beregningene.
+                  {sortColumn && (
+                    <span className="ml-2 font-semibold text-[#2F5D3A]">
+                      (Sortert på: {sortColumn === "potensialMt" ? "Potensial" : sortColumn === "kostnad" ? "Kostnad" : sortColumn === "tiltak" ? "Tiltak" : "Kategori"} {sortDirection === "desc" ? "↓" : "↑"})
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="flex gap-2 flex-wrap text-sm">
@@ -554,6 +638,14 @@ export default function KlimakurPrestigeDashboard() {
                 >
                   Fjern alle (filter)
                 </button>
+                {sortColumn && (
+                  <button
+                    onClick={resetSort}
+                    className="px-3 py-2 rounded-2xl border border-[#C9B27C] bg-[#F3EBD9] text-[#2F5D3A] hover:bg-[#EDE1C9] transition"
+                  >
+                    Tilbakestill sortering
+                  </button>
+                )}
               </div>
             </div>
             <table className="w-full text-sm border-collapse">
@@ -569,21 +661,54 @@ export default function KlimakurPrestigeDashboard() {
                       onChange={(e) => (e.target.checked ? selectAllFiltered() : deselectAllFiltered())}
                     />
                   </th>
-                  <th className="py-2 pr-2 text-left">Tiltak</th>
-                  <th className="py-2 pr-2 text-left">Kategori</th>
+                  <th 
+                    className="py-2 pr-2 text-left cursor-pointer hover:bg-[#E0D2B6] transition select-none"
+                    onClick={() => handleSort("tiltak")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Tiltak
+                      <SortIcon column="tiltak" />
+                    </div>
+                  </th>
+                  <th 
+                    className="py-2 pr-2 text-left cursor-pointer hover:bg-[#E0D2B6] transition select-none whitespace-nowrap"
+                    onClick={() => handleSort("kategori")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Kategori
+                      <SortIcon column="kategori" />
+                    </div>
+                  </th>
                   <th className="py-2 pr-2 text-left">Kostnadsbøtte</th>
-                  <th className="py-2 pr-2 text-right">Potensial (Mt)</th>
+                  <th 
+                    className="py-2 pr-2 text-right cursor-pointer hover:bg-[#E0D2B6] transition select-none"
+                    onClick={() => handleSort("potensialMt")}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Potensial (Mt)
+                      <SortIcon column="potensialMt" />
+                    </div>
+                  </th>
                   <th className="py-2 pr-2 text-right">Enhetskost (kr/t)</th>
-                  <th className="py-2 pr-2 text-right">Kostnad (mrd kr)</th>
+                  <th 
+                    className="py-2 pr-2 text-right cursor-pointer hover:bg-[#E0D2B6] transition select-none"
+                    onClick={() => handleSort("kostnad")}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Kostnad (mrd kr)
+                      <SortIcon column="kostnad" />
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {measures.map((m) => {
-                  const r = rowsAll.find((x) => x.tiltak === m.t);
+                {measures.map((m, idx) => {
+                  const r = rowsMap.get(m.t);
                   const isChecked = selected.has(m.t);
                   if (!r) return null;
+                  // Bruk unik key basert på navn, kategori og indeks for å håndtere duplikater
                   return (
-                    <tr key={m.t} className="border-b border-[#E0D2B6]">
+                    <tr key={`${m.t}-${m.c}-${idx}`} className="border-b border-[#E0D2B6]">
                       <td className="py-1 pr-2">
                         <input type="checkbox" className="h-4 w-4 accent-[#2F5D3A] border border-[#C9B27C] rounded-sm bg-[#F7F3E8] checked:bg-[#2F5D3A] checked:border-[#2F5D3A] shadow-inner"
                           checked={isChecked}
