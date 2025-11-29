@@ -624,8 +624,8 @@ export default function KlimakurPrestigeDashboard() {
             <div className="mt-4 p-4 bg-[#F3EBD9] border border-[#C9B27C]/70 rounded-2xl text-sm leading-relaxed shadow-sm">
               <p className="font-semibold text-[#2F5D3A] mb-1">Hva betyr «tiltakskost»?</p>
               <p className="text-[#2A2A2A]">
-                I Klimakur brukes tiltakskost som et samfunnsøkonomisk mål: summen av alle reelle kostnader ved et
-                klimatiltak – som investeringer, drift og teknologikostnader – minus eventuelle samfunnsøkonomiske
+                Tiltakskost er et samfunnsøkonomisk mål som brukes av Miljødirektoratet: summen av alle reelle kostnader 
+                ved et klimatiltak – som investeringer, drift og teknologikostnader – minus eventuelle samfunnsøkonomiske
                 gevinster. Resultatet fordeles på tonn CO₂‑ekvivalent redusert for å uttrykke hvor mye ressursbruk hvert
                 kutt krever. Skatter, avgifter og subsidier inngår ikke, fordi de kun flytter penger mellom aktører og ikke
                 påvirker den faktiske ressursbruken i samfunnet.
