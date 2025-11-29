@@ -7,23 +7,49 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  ReferenceLine,
+  ComposedChart,
+  Cell,
+  LabelList,
 } from "recharts";
 
-// --- Referansedata for klimamål ------------------------------------------------
+// --- Referansedata for klimamål og NB25-banen --------------------------------
+// 
+// NB25 = Nasjonalbudsjettet 2025 / Klimastatus og -plan (2025)
+// Referansebanen viser forventet utslipp med vedtatt politikk.
+// Alle tiltak i KiN 2025 er TILLEGGSKUTT utover denne banen.
+//
 // Kilder:
 // - SSB: https://www.ssb.no/natur-og-miljo/miljoregnskap/statistikk/utslipp-til-luft
-// - Regjeringen: https://www.regjeringen.no/no/aktuelt/norge-har-meldt-inn-sitt-nye-klimamal-til-fn/id3112346/
-// - Miljødirektoratet: https://www.miljodirektoratet.no/
+// - NB25/Klimastatus og -plan: https://www.regjeringen.no/no/dokumenter/meld.-st.-1-20242025/id3066044/
+// - Miljødirektoratet KiN 2025: https://www.miljodirektoratet.no/publikasjoner/2025/januar-2025/klimatiltak-i-norge-kunnskapsgrunnlag-2025/
+
 const CLIMATE_CONTEXT = {
-  baseline1990: 52.0,  // Mt CO2e - Norges utslipp i 1990 (referanseår)
-  current2023: 48.0,   // Mt CO2e - Siste tilgjengelige tall (2023)
+  // Baseline og referansebane (NB25 = Nasjonalbudsjettet 2025 / Klimastatus og -plan)
+  baseline1990: 51.0,    // Mt CO2e - Norges utslipp i 1990 (SSB, offisiell baseline)
+  ref2035_NB25: 31.7,    // Mt CO2e - Forventet utslipp i 2035 med vedtatt politikk (NB25)
+  
+  // Beregnet: NB25-banen gir 38% kutt fra 1990 ((51 - 31.7) / 51 ≈ 38%)
+  // Dette betyr at tiltakene i KiN 2025 er TILLEGGSKUTT utover dette.
+  
+  // Mål for 2035 (fra 1990-nivå)
   targets: {
-    "70% kutt": { year: 2035, reduction: 0.70, level: 52 * (1 - 0.70) },   // 15.6 Mt
-    "75% kutt": { year: 2035, reduction: 0.75, level: 52 * (1 - 0.75) },   // 13.0 Mt
+    "70% kutt": { 
+      year: 2035, 
+      reduction: 0.70, 
+      level: 51.0 * (1 - 0.70)  // 15.3 Mt
+    },
+    "75% kutt": { 
+      year: 2035, 
+      reduction: 0.75, 
+      level: 51.0 * (1 - 0.75)  // 12.75 Mt
+    },
   },
+  
+  // Kilder med URL
   sources: {
     ssb: "https://www.ssb.no/natur-og-miljo/miljoregnskap/statistikk/utslipp-til-luft",
-    regjeringen: "https://www.regjeringen.no/no/aktuelt/norge-har-meldt-inn-sitt-nye-klimamal-til-fn/id3112346/",
+    nb25: "https://www.regjeringen.no/no/dokumenter/meld.-st.-1-20242025/id3066044/",
     mdir: "https://www.miljodirektoratet.no/publikasjoner/2025/januar-2025/klimatiltak-i-norge-kunnskapsgrunnlag-2025/",
   }
 };
@@ -210,6 +236,26 @@ function SectorTooltip({ active, payload }) {
       <p className="text-xs text-[#2A2A2A]/70 mt-1">
         Snitt tiltakskost: {data.potKt > 0 ? nb((data.cost * 1e6) / data.potKt, 0) + ' kr/t' : '—'}
       </p>
+    </div>
+  );
+}
+
+// Custom tooltip for emissions pathway chart
+function EmissionsTooltip({ active, payload }) {
+  if (!active || !payload || !payload.length) return null;
+  const data = payload[0].payload;
+  return (
+    <div className="bg-[#F7F3E8] border border-[#C9B27C]/80 rounded-xl p-3 shadow-lg font-serif text-sm max-w-xs">
+      <p className="font-semibold text-[#2F5D3A] mb-1">{data.label}</p>
+      <p>Utslipp: <span className="font-semibold">{nb(data.emissions, 1)} Mt CO₂e</span></p>
+      {data.cutPercent !== undefined && (
+        <p className="text-xs text-[#2A2A2A]/70">
+          {data.cutPercent > 0 ? `${nb(data.cutPercent, 0)}% kutt fra 1990` : 'Referanseår'}
+        </p>
+      )}
+      {data.description && (
+        <p className="text-xs text-[#2A2A2A]/70 mt-1 italic">{data.description}</p>
+      )}
     </div>
   );
 }
@@ -448,39 +494,54 @@ export default function KlimakurPrestigeDashboard() {
     return { potKt, potMt, cost, avg: potKt > 0 ? (cost * 1e6) / potKt : 0 };
   }, [rowsSelected]);
 
-  // Beregn gap til klimamål
+  // Beregn gap til klimamål med NB25-referansebane
+  // Tiltakene er TILLEGGSKUTT utover NB25-banen
   const targetAnalysis = useMemo(() => {
     const target = CLIMATE_CONTEXT.targets[selectedTarget];
-    const current = CLIMATE_CONTEXT.current2023;
-    const baseline = CLIMATE_CONTEXT.baseline1990;
+    const baseline1990 = CLIMATE_CONTEXT.baseline1990;
+    const ref2035 = CLIMATE_CONTEXT.ref2035_NB25;
     const targetLevel = target.level;
     
-    // Nødvendig kutt fra dagens nivå
-    const requiredReduction = current - targetLevel;
+    // Hvor mye kutt er allerede bakt inn i referansebanen?
+    const refCutFromBaseline = baseline1990 - ref2035;
+    const refCutPercent = (refCutFromBaseline / baseline1990) * 100;
     
-    // Hvor mye dekker valgte tiltak?
-    const covered = totals.potMt;
+    // Ekstra kutt fra valgte tiltak (dette er hva tiltakene bidrar med)
+    const extraCut = totals.potMt;
     
-    // Gap (hva mangler?)
-    const gap = Math.max(0, requiredReduction - covered);
+    // Resulterende utslippsnivå = NB25-bane minus tilleggskutt
+    const emissionsWithMeasures = ref2035 - extraCut;
     
-    // Prosent av nødvendig kutt
-    const coveragePercent = requiredReduction > 0 ? (covered / requiredReduction) * 100 : 0;
+    // Total prosentvis kutt fra 1990
+    const totalCutFromBaseline = baseline1990 - emissionsWithMeasures;
+    const totalCutPercent = (totalCutFromBaseline / baseline1990) * 100;
     
-    // Resulterende utslippsnivå hvis alle valgte tiltak gjennomføres
-    const resultingLevel = current - covered;
+    // Gap til mål (hvor mye mangler?)
+    const gapTo70 = Math.max(0, emissionsWithMeasures - CLIMATE_CONTEXT.targets["70% kutt"].level);
+    const gapTo75 = Math.max(0, emissionsWithMeasures - CLIMATE_CONTEXT.targets["75% kutt"].level);
+    const gap = Math.max(0, emissionsWithMeasures - targetLevel);
+    
+    // Dekningsgrad: Hvor stor andel av nødvendig ekstra kutt (fra NB25 til mål) dekkes?
+    const requiredExtraCut = ref2035 - targetLevel;
+    const coveragePercent = requiredExtraCut > 0 ? Math.min(100, (extraCut / requiredExtraCut) * 100) : 100;
     
     return {
       target,
-      current,
-      baseline,
+      baseline1990,
+      ref2035,
+      refCutFromBaseline,
+      refCutPercent,
       targetLevel,
-      requiredReduction,
-      covered,
+      extraCut,
+      emissionsWithMeasures,
+      totalCutFromBaseline,
+      totalCutPercent,
+      requiredExtraCut,
       gap,
+      gapTo70,
+      gapTo75,
       coveragePercent,
-      resultingLevel,
-      reachesTarget: resultingLevel <= targetLevel,
+      reachesTarget: emissionsWithMeasures <= targetLevel,
     };
   }, [selectedTarget, totals.potMt]);
 
@@ -502,6 +563,35 @@ export default function KlimakurPrestigeDashboard() {
       count: v.count 
     })).sort((a, b) => a.kategori.localeCompare(b.kategori));
   }, [rowsSelected]);
+
+  // Data for utslippsbane-graf (3 søyler + 2 mållinjer)
+  const emissionsChartData = useMemo(() => {
+    const { baseline1990, ref2035, refCutPercent, emissionsWithMeasures, totalCutPercent } = targetAnalysis;
+    
+    return [
+      {
+        label: "1990",
+        emissions: baseline1990,
+        cutPercent: 0,
+        description: "Referanseår for klimamål",
+        color: "#8B9D77",
+      },
+      {
+        label: "2035 (NB25)",
+        emissions: ref2035,
+        cutPercent: refCutPercent,
+        description: "Forventet med vedtatt politikk",
+        color: "#C9B27C",
+      },
+      {
+        label: "2035 + tiltak",
+        emissions: Math.max(0, emissionsWithMeasures),
+        cutPercent: totalCutPercent,
+        description: "NB25 + valgte klimatiltak",
+        color: "#2F5D3A",
+      },
+    ];
+  }, [targetAnalysis]);
 
   // Gruppér etter kostnadsnivå (for graf)
   const byCostRange = useMemo(() => {
@@ -664,51 +754,41 @@ export default function KlimakurPrestigeDashboard() {
             </div>
 
             {/* Forklaring av beregning */}
-            <div className="text-sm text-[#2A2A2A]/80 mb-4 leading-relaxed">
-              <strong className="text-[#2F5D3A]">Beregning:</strong> Utslipp i 1990 × (1 − {selectedTarget.replace(" kutt", "")}) = maksimalt tillatt utslipp i 2035. 
-              Differansen mellom dagens utslipp (2023) og dette målet er hvor mye som må kuttes.
+            <div className="text-sm text-[#2A2A2A]/80 mb-4 leading-relaxed bg-[#F7F3E8] border border-[#C9B27C]/50 rounded-xl p-3">
+              <strong className="text-[#2F5D3A]">Om beregningen:</strong> Referansebanen (NB25) viser forventet utslipp i 2035 med vedtatt politikk: {nb(CLIMATE_CONTEXT.ref2035_NB25, 1)} Mt (38 % kutt fra 1990).
+              Klimatiltakene i dette verktøyet er <em>ekstra kutt</em> utover denne banen, slik Miljødirektoratet beregner dem i KiN 2025.
+              For å nå {selectedTarget} ({nb(targetAnalysis.targetLevel, 1)} Mt) må vi kutte ytterligere {nb(targetAnalysis.requiredExtraCut, 1)} Mt fra NB25-banen.
             </div>
 
-            {/* Nøkkeltall-rad */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-              <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-3">
-                <div className="text-xs uppercase tracking-[0.1em] text-[#2F5D3A]/70 mb-1">Utslipp 1990</div>
-                <div className="text-xl text-[#2F5D3A] font-semibold">{nb(CLIMATE_CONTEXT.baseline1990, 1)} Mt</div>
-                <div className="text-[10px] text-[#2A2A2A]/50">referanseår</div>
+            {/* KPI-kort: 3 nøkkeltall */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+              <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-4">
+                <div className="text-xs uppercase tracking-[0.1em] text-[#2F5D3A]/70 mb-1">Referansebanen 2035</div>
+                <div className="text-2xl text-[#C9B27C] font-semibold">{nb(targetAnalysis.ref2035, 1)} Mt</div>
+                <div className="text-xs text-[#2A2A2A]/60">{nb(targetAnalysis.refCutPercent, 0)} % kutt fra 1990 (NB25)</div>
               </div>
-              <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-3">
-                <div className="text-xs uppercase tracking-[0.1em] text-[#2F5D3A]/70 mb-1">Utslipp 2023</div>
-                <div className="text-xl text-[#2F5D3A] font-semibold">{nb(targetAnalysis.current, 1)} Mt</div>
-                <div className="text-[10px] text-[#2A2A2A]/50">dagens nivå</div>
+              <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-4">
+                <div className="text-xs uppercase tracking-[0.1em] text-[#2F5D3A]/70 mb-1">NB25 + valgte tiltak</div>
+                <div className="text-2xl text-[#2F5D3A] font-semibold">{nb(Math.max(0, targetAnalysis.emissionsWithMeasures), 1)} Mt</div>
+                <div className="text-xs text-[#2A2A2A]/60">{nb(targetAnalysis.totalCutPercent, 0)} % kutt fra 1990</div>
               </div>
-              <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-3">
-                <div className="text-xs uppercase tracking-[0.1em] text-[#2F5D3A]/70 mb-1">Mål 2035</div>
-                <div className="text-xl text-[#2F5D3A] font-semibold">{nb(targetAnalysis.targetLevel, 1)} Mt</div>
-                <div className="text-[10px] text-[#2A2A2A]/50">maks tillatt</div>
-              </div>
-              <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-3">
-                <div className="text-xs uppercase tracking-[0.1em] text-[#2F5D3A]/70 mb-1">Må kuttes</div>
-                <div className="text-xl text-[#8B4513] font-semibold">{nb(targetAnalysis.requiredReduction, 1)} Mt</div>
-                <div className="text-[10px] text-[#2A2A2A]/50">2023 → 2035</div>
-              </div>
-              <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-3">
-                <div className="text-xs uppercase tracking-[0.1em] text-[#2F5D3A]/70 mb-1">Valgte tiltak</div>
-                <div className="text-xl text-[#2F5D3A] font-semibold">{nb(targetAnalysis.covered, 1)} Mt</div>
-                <div className="text-[10px] text-[#2A2A2A]/50">potensial</div>
-              </div>
-              <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-3">
-                <div className="text-xs uppercase tracking-[0.1em] text-[#2F5D3A]/70 mb-1">Gap</div>
-                <div className={`text-xl font-semibold ${targetAnalysis.gap > 0 ? 'text-[#8B4513]' : 'text-[#2F5D3A]'}`}>
-                  {targetAnalysis.gap > 0 ? nb(targetAnalysis.gap, 1) + " Mt" : "✓"}
+              <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-4">
+                <div className="text-xs uppercase tracking-[0.1em] text-[#2F5D3A]/70 mb-1">Gap til mål</div>
+                <div className={`text-2xl font-semibold ${targetAnalysis.gap > 0 ? 'text-[#8B4513]' : 'text-[#2F5D3A]'}`}>
+                  {targetAnalysis.gap > 0 ? nb(targetAnalysis.gap, 1) + " Mt" : "✓ Nådd"}
                 </div>
-                <div className="text-[10px] text-[#2A2A2A]/50">{targetAnalysis.gap > 0 ? "gjenstår" : "dekket"}</div>
+                <div className="text-xs text-[#2A2A2A]/60">
+                  {targetAnalysis.gap > 0 
+                    ? `Mangler ${nb(targetAnalysis.gap, 1)} Mt til ${selectedTarget}` 
+                    : `Under målet på ${nb(targetAnalysis.targetLevel, 1)} Mt`}
+                </div>
               </div>
             </div>
 
-            {/* Progress bar */}
+            {/* Progress bar: Dekningsgrad av nødvendig ekstra kutt */}
             <div className="mb-4">
               <div className="flex justify-between text-xs text-[#2F5D3A]/70 mb-1">
-                <span>Dekningsgrad</span>
+                <span>Dekningsgrad (ekstra kutt fra NB25 → mål)</span>
                 <span className="font-semibold text-[#2F5D3A]">{nb(targetAnalysis.coveragePercent, 0)}%</span>
               </div>
               <div className="relative h-4 bg-[#E8DCC8] rounded-full overflow-hidden border border-[#C9B27C]/50">
@@ -722,19 +802,84 @@ export default function KlimakurPrestigeDashboard() {
             {/* Status-melding */}
             {!targetAnalysis.reachesTarget ? (
               <div className="text-sm text-[#2A2A2A] bg-[#F7F3E8] border border-[#C9B27C]/50 rounded-xl p-3">
-                <span className="font-semibold text-[#2F5D3A]">Status:</span> Valgte tiltak kutter {nb(targetAnalysis.covered, 1)} Mt og gir utslipp på {nb(targetAnalysis.resultingLevel, 1)} Mt i 2035. 
-                Målet er {nb(targetAnalysis.targetLevel, 1)} Mt – det gjenstår {nb(targetAnalysis.gap, 1)} Mt i kutt.
+                <span className="font-semibold text-[#2F5D3A]">Status:</span> Referansebanen gir {nb(targetAnalysis.ref2035, 1)} Mt i 2035. 
+                Valgte tiltak kutter {nb(targetAnalysis.extraCut, 1)} Mt ekstra → {nb(Math.max(0, targetAnalysis.emissionsWithMeasures), 1)} Mt. 
+                Mål: {nb(targetAnalysis.targetLevel, 1)} Mt – det gjenstår {nb(targetAnalysis.gap, 1)} Mt.
               </div>
             ) : (
               <div className="text-sm text-[#2A2A2A] bg-[#F7F3E8] border border-[#2F5D3A]/30 rounded-xl p-3">
-                <span className="font-semibold text-[#2F5D3A]">✓ Målet nås:</span> Valgte tiltak kutter {nb(targetAnalysis.covered, 1)} Mt og gir utslipp på {nb(targetAnalysis.resultingLevel, 1)} Mt – 
+                <span className="font-semibold text-[#2F5D3A]">✓ Målet nås:</span> Referansebanen gir {nb(targetAnalysis.ref2035, 1)} Mt i 2035. 
+                Valgte tiltak kutter {nb(targetAnalysis.extraCut, 1)} Mt ekstra → {nb(Math.max(0, targetAnalysis.emissionsWithMeasures), 1)} Mt – 
                 under målet på {nb(targetAnalysis.targetLevel, 1)} Mt.
               </div>
             )}
 
+            {/* Utslippsbane-graf */}
+            <div className="mt-6">
+              <h4 className="text-sm font-semibold text-[#2F5D3A] mb-2">Utslippsnivå: 1990 → NB25 → NB25 + tiltak</h4>
+              <div className="h-64 sm:h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={emissionsChartData} margin={{ top: 20, right: 20, bottom: 20, left: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#CBBF9F" strokeOpacity={0.4} vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#2F5D3A" }} />
+                    <YAxis 
+                      domain={[0, 55]} 
+                      tick={{ fontSize: 11, fill: "#2A2A2A" }} 
+                      label={{ value: 'Mt CO₂e', angle: -90, position: 'insideLeft', fontSize: 10, fill: "#2A2A2A" }}
+                    />
+                    <Tooltip content={<EmissionsTooltip />} />
+                    
+                    {/* Mållinje 70% */}
+                    <ReferenceLine 
+                      y={CLIMATE_CONTEXT.targets["70% kutt"].level} 
+                      stroke="#2F5D3A" 
+                      strokeWidth={2}
+                      strokeDasharray="8 4"
+                      label={{ 
+                        value: `70 %: ${nb(CLIMATE_CONTEXT.targets["70% kutt"].level, 1)} Mt`, 
+                        position: 'right', 
+                        fontSize: 10, 
+                        fill: "#2F5D3A" 
+                      }}
+                    />
+                    
+                    {/* Mållinje 75% */}
+                    <ReferenceLine 
+                      y={CLIMATE_CONTEXT.targets["75% kutt"].level} 
+                      stroke="#8B4513" 
+                      strokeWidth={2}
+                      strokeDasharray="8 4"
+                      label={{ 
+                        value: `75 %: ${nb(CLIMATE_CONTEXT.targets["75% kutt"].level, 1)} Mt`, 
+                        position: 'right', 
+                        fontSize: 10, 
+                        fill: "#8B4513" 
+                      }}
+                    />
+                    
+                    {/* Søyler for utslippsnivå */}
+                    <Bar dataKey="emissions" name="Utslipp" radius={[4, 4, 0, 0]}>
+                      {emissionsChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                      <LabelList 
+                        dataKey="emissions" 
+                        position="top" 
+                        formatter={(val) => `${nb(val, 1)} Mt`}
+                        style={{ fontSize: 11, fill: "#2A2A2A", fontWeight: 600 }}
+                      />
+                    </Bar>
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-xs text-[#2A2A2A]/60 mt-2 text-center italic">
+                Søylene viser utslippsnivå. Stiplede linjer viser 2035-målene (70 % og 75 % kutt fra 1990).
+              </p>
+            </div>
+
             <div className="mt-4 text-xs text-[#2A2A2A]/60">
               Kilder: <a href={CLIMATE_CONTEXT.sources.ssb} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#2F5D3A]">SSB</a> · 
-              <a href={CLIMATE_CONTEXT.sources.regjeringen} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#2F5D3A] ml-1">Regjeringen</a> · 
+              <a href={CLIMATE_CONTEXT.sources.nb25} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#2F5D3A] ml-1">Nasjonalbudsjettet 2025</a> · 
               <a href={CLIMATE_CONTEXT.sources.mdir} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#2F5D3A] ml-1">Miljødirektoratet</a>
             </div>
           </section>
@@ -1130,8 +1275,8 @@ export default function KlimakurPrestigeDashboard() {
           {/* Academic-style footer note */}
           <footer className="pt-4 mt-4 border-t border-[#C9B27C]/60 text-[0.7rem] leading-relaxed text-[#2F5D3A]/90">
             <p>
-              <span className="font-semibold">Kilde:</span> Miljødirektoratet, «Klimatiltak i Norge – Kunnskapsgrunnlag 2025» (M 2920).
-              Potensial for utslippskutt viser årlige reduksjoner i 2035 (ikke kumulative).
+              <span className="font-semibold">Kilder:</span> Miljødirektoratet, «Klimatiltak i Norge – Kunnskapsgrunnlag 2025» (M 2920); 
+              Nasjonalbudsjettet 2025 (NB25) / Klimastatus og -plan, Regjeringen; SSB klimastatistikk.
               {" "}
               <a 
                 href="https://www.miljodirektoratet.no/publikasjoner/2025/januar-2025/klimatiltak-i-norge-kunnskapsgrunnlag-2025/" 
@@ -1139,8 +1284,13 @@ export default function KlimakurPrestigeDashboard() {
                 rel="noopener noreferrer"
                 className="underline hover:text-[#2F5D3A]"
               >
-                Les rapporten hos Miljødirektoratet →
+                Les KiN-rapporten →
               </a>
+            </p>
+            <p className="mt-2">
+              <span className="font-semibold">Om referansebanen:</span> NB25 angir forventet utslipp i 2035 til 31,7 Mt CO₂-ekv med vedtatt politikk (38 % kutt fra 1990). 
+              Alle tiltak i KiN 2025 er beregnet som <em>tilleggskutt</em> utover denne banen – ikke som totale kutt fra dagens nivå.
+              Dette gjør verktøyet kompatibelt med offisielle norske klimaregnskaper og EU-metodikk.
             </p>
             <p className="mt-2">
               <span className="font-semibold">Om verktøyet:</span> Et interaktivt verktøy som gjør tallene fra Klimatiltak i Norge lettere å utforske. 
