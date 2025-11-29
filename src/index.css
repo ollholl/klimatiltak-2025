@@ -3,3 +3,55 @@
 body {
   margin: 0;
 }
+
+/* Print styles */
+@media print {
+  /* Generelle justeringer */
+  body {
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+  
+  /* Skjul interaktive elementer */
+  button,
+  input,
+  select,
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Vis alle tiltak (ikke bare valgte) i tabellen */
+  table tbody tr {
+    page-break-inside: avoid;
+  }
+  
+  /* Fjern skygger og avrundinger for renere print */
+  section {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: 1px solid #C9B27C !important;
+    margin-bottom: 1rem;
+    page-break-inside: avoid;
+  }
+  
+  /* Sikre at grafer vises */
+  .recharts-wrapper {
+    page-break-inside: avoid;
+  }
+  
+  /* Bedre bakgrunnsfarger for print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Header styling */
+  header {
+    page-break-after: avoid;
+  }
+  
+  /* Footer på hver side */
+  footer {
+    page-break-before: avoid;
+  }
+}
