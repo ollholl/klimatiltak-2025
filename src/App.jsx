@@ -89,7 +89,8 @@ function getMdirUrl(measure) {
 // --- Data --------------------------------------------------------------------
 // Kilde: Miljødirektoratet, Klimatiltak i Norge – Kunnskapsgrunnlag 2025 (M 2920), s. 13-16
 // p = Potensial for utslippskutt 2035 i 1000 tonn CO2-ekv (kt)
-// cost = Tiltakskostnad i kr/tonn (null = ikke vurdert, 0 = lav/negativ)
+// cost = Tiltakskostnad i kr/tonn - ØVRE GRENSE hvis intervall (null = ikke vurdert, 0 = lav/negativ)
+// costRange = Originalt kostnadsspenn fra rapporten (for visning)
 const MEASURES = [
   // ============================================================================
   // LANDTRANSPORT, MASKINER OG LUFTFART (T01-T27)
@@ -146,7 +147,7 @@ const MEASURES = [
   // ============================================================================
   // PETROLEUM (P01-P05)
   // ============================================================================
-  { t: "P01 Elektrifisering i petroleumssektoren", c: "Petroleum", p: 2139, cost: 2100 },
+  { t: "P01 Elektrifisering i petroleumssektoren", c: "Petroleum", p: 2139, cost: 3500, costRange: "700–3500" },
   { t: "P02 Kraft fra flytende gasskraftverk med CCS", c: "Petroleum", p: 0, cost: null, slug: "offshore-gasskraftverk-med-ccs" },
   { t: "P03 Økt gjenvinning av metan og NMVOC ved råoljelasting offshore", c: "Petroleum", p: 24, cost: null },
   { t: "P04 Reduksjon av utslipp av metan og NMVOC fra kaldventilering offshore", c: "Petroleum", p: 0, cost: null },
@@ -398,6 +399,7 @@ export default function KlimakurPrestigeDashboard() {
       potensialMt: m.p / 1000,
       enhetskost: getUnitCost(m),
       originalCost: m.cost,
+      costRange: m.costRange || (m.cost !== null ? String(m.cost) : null),
       hasOverride: costOverrides[m.t] !== undefined,
       hasUnknownCost: hasUnknownCost(m),
       sumMrd: itemCostMrd(m),
@@ -1194,7 +1196,7 @@ export default function KlimakurPrestigeDashboard() {
               </div>
             </div>
             <div className="overflow-x-auto -mx-3 sm:-mx-5 px-3 sm:px-5">
-              <table className="w-full text-sm border-collapse min-w-[700px]">
+              <table className="w-full text-sm border-collapse min-w-[800px]">
               <thead>
                 <tr className="border-b border-[#C9B27C]/80 bg-[#EDE1C9]">
                   <th className="py-2 pr-2 w-10 text-left">
@@ -1234,7 +1236,8 @@ export default function KlimakurPrestigeDashboard() {
                       <SortIcon column="potensialKt" />
                     </div>
                   </th>
-                  <th className="py-2 pr-2 text-right">Enhetskost (kr/t)</th>
+                  <th className="py-2 pr-2 text-right whitespace-nowrap" title="Kostnadsspenn fra Miljødirektoratet">Mdir (kr/t)</th>
+                  <th className="py-2 pr-2 text-right whitespace-nowrap" title="Valgt enhetskost for beregning">Valgt (kr/t)</th>
                   <th 
                     className="py-2 pr-2 text-right cursor-pointer hover:bg-[#E0D2B6] transition select-none"
                     onClick={() => handleSort("kostnad")}
@@ -1275,13 +1278,11 @@ export default function KlimakurPrestigeDashboard() {
                       </td>
                       <td className="py-1 pr-2 align-top whitespace-nowrap">{r.kategori}</td>
                       <td className="py-1 pr-2 align-top text-right">{nb(r.potensialMt, 3)}</td>
+                      <td className="py-1 pr-2 align-top text-right text-[#2A2A2A]/70 text-xs">
+                        {r.costRange || <span className="italic">—</span>}
+                      </td>
                       <td className="py-1 pr-2 align-top text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {r.hasUnknownCost && (
-                            <span className="text-[10px] text-[#8B4513]" title="Kostnad ikke vurdert i rapporten – bruker standardantakelse">
-                              antatt
-                            </span>
-                          )}
                           <input
                             type="number"
                             className={classNames(
@@ -1325,6 +1326,7 @@ export default function KlimakurPrestigeDashboard() {
                     Sum (viste)
                   </td>
                   <td className="py-2 pr-2 text-right">{nb(displayedTotals.potMt, 2)}</td>
+                  <td></td>
                   <td></td>
                   <td className="py-2 pr-2 text-right">{nb(displayedTotals.cost, 2)}</td>
                 </tr>
