@@ -86,6 +86,30 @@ function getMdirUrl(measure) {
   return `https://www.miljodirektoratet.no/tjenester/klimatiltak/tiltaksark-2025/${categoryPath}/${id}-${slug}/`;
 }
 
+// --- Overlappende tiltak (gjensidig ekskluderende eller delvis overlappende) ---
+// Nøkkel = tiltaks-ID prefix (f.eks. "T04"), verdi = liste med overlappende tiltaks-IDer
+// Merk: Dette er eksempler - utfylles basert på Mdir's analyse
+const CONFLICTS = {
+  // Transport: Alternative måter å redusere biltrafikk
+  "T04": ["T05", "T06"], // Gange/sykkel vs kollektiv
+  "T05": ["T04", "T06"], // Kollektiv kort vs gange eller lang
+  "T06": ["T04", "T05"], // Kollektiv lang vs gange eller kort
+  
+  // Sjøfart: Alternative drivstoff
+  "S03": ["S04"], // Hydrogen vs biogass i sjøfart
+  "S04": ["S03"],
+  
+  // Industri: CCS vs elektrifisering kan delvis overlappe
+  "I02": ["I06"], // CCS på industri vs elektrifisering
+  "I06": ["I02"],
+};
+
+// Hjelpefunksjon for å hente tiltaks-ID fra tittel
+function getMeasureId(title) {
+  const match = title.match(/^([A-Z]\d+(-\d+)?)/);
+  return match ? match[1] : null;
+}
+
 // --- Data --------------------------------------------------------------------
 // Kilde: Miljødirektoratet, Klimatiltak i Norge – Kunnskapsgrunnlag 2025 (M 2920), s. 13-16
 // p = Potensial for utslippskutt 2035 i 1000 tonn CO2-ekv (kt)
@@ -303,8 +327,17 @@ export default function KlimakurPrestigeDashboard() {
   const [sortDirection, setSortDirection] = useState("desc"); // "asc" | "desc"
 
   // --- Utvalg av tiltak (huke av/på) ----------------------------------------
+  // Default: ingen tiltak valgt (start fra blankt ark)
   const [selected, setSelected] = useState(() => {
-    // Hvis URL har liste over deselected (x), start med alle og fjern disse
+    // Hvis URL/localStorage har liste over selected (s), bruk disse
+    if (initialUrlState?.s) {
+      const selectedSet = new Set();
+      initialUrlState.s.forEach((idx) => {
+        if (MEASURES[idx]) selectedSet.add(MEASURES[idx].t);
+      });
+      return selectedSet;
+    }
+    // Bakoverkompatibilitet: hvis gammel format (x = deselected), konverter
     if (initialUrlState?.x) {
       const allSet = new Set(MEASURES.map((m) => m.t));
       initialUrlState.x.forEach((idx) => {
@@ -312,20 +345,24 @@ export default function KlimakurPrestigeDashboard() {
       });
       return allSet;
     }
-    return new Set(MEASURES.map((m) => m.t));
+    // Default: tomt (ingen valgt)
+    return new Set();
   });
+  
+  // Advarsler for overlappende tiltak
+  const [warnings, setWarnings] = useState([]);
   
   // Kopier-lenke state
   const [linkCopied, setLinkCopied] = useState(false);
   
   // Lagre til localStorage når state endres (men ikke til URL)
   useEffect(() => {
-    const deselectedIndices = MEASURES
-      .map((m, i) => selected.has(m.t) ? null : i)
+    const selectedIndices = MEASURES
+      .map((m, i) => selected.has(m.t) ? i : null)
       .filter((i) => i !== null);
     
     const state = {};
-    if (deselectedIndices.length > 0) state.x = deselectedIndices;
+    if (selectedIndices.length > 0) state.s = selectedIndices;
     if (Object.keys(costOverrides).length > 0) state.o = costOverrides;
     if (defaultUnknownCost !== 1500) state.d = defaultUnknownCost;
     if (selectedTarget !== "70% kutt") state.t = selectedTarget;
@@ -338,12 +375,12 @@ export default function KlimakurPrestigeDashboard() {
   const copyShareLink = async () => {
     try {
       // Bygg state for URL
-      const deselectedIndices = MEASURES
-        .map((m, i) => selected.has(m.t) ? null : i)
+      const selectedIndices = MEASURES
+        .map((m, i) => selected.has(m.t) ? i : null)
         .filter((i) => i !== null);
       
       const state = {};
-      if (deselectedIndices.length > 0) state.x = deselectedIndices;
+      if (selectedIndices.length > 0) state.s = selectedIndices;
       if (Object.keys(costOverrides).length > 0) state.o = costOverrides;
       if (defaultUnknownCost !== 1500) state.d = defaultUnknownCost;
       if (selectedTarget !== "70% kutt") state.t = selectedTarget;
@@ -639,7 +676,8 @@ export default function KlimakurPrestigeDashboard() {
     setCostOverrides({});
     setDefaultUnknownCost(1500);
     setSelectedTarget("70% kutt");
-    setSelected(new Set(MEASURES.map((m) => m.t)));
+    setSelected(new Set()); // Start fra blankt ark
+    setWarnings([]);
     setFilterCat("Alle");
     setFilterCostType("alle");
     setSearch("");
@@ -655,28 +693,125 @@ export default function KlimakurPrestigeDashboard() {
   const allFilteredSelected = filteredIds.every((id) => selected.has(id)) && filteredIds.length > 0;
   const noneFilteredSelected = filteredIds.every((id) => !selected.has(id));
 
+  // Sjekk konflikter mellom valgte tiltak
+  function checkConflicts(selectedSet) {
+    const conflicts = [];
+    const selectedIds = Array.from(selectedSet).map(title => ({
+      title,
+      id: getMeasureId(title)
+    })).filter(m => m.id);
+    
+    for (const measure of selectedIds) {
+      const conflictingIds = CONFLICTS[measure.id] || [];
+      for (const conflictId of conflictingIds) {
+        const conflictingMeasure = selectedIds.find(m => m.id === conflictId);
+        if (conflictingMeasure) {
+          // Unngå duplikater (A→B og B→A)
+          const key = [measure.id, conflictId].sort().join('-');
+          if (!conflicts.some(c => c.key === key)) {
+            conflicts.push({
+              key,
+              a: measure.title,
+              b: conflictingMeasure.title,
+              message: `${measure.id} og ${conflictId} kan overlappe – potensialet kan ikke summeres fullt ut.`
+            });
+          }
+        }
+      }
+    }
+    return conflicts;
+  }
+
   function toggleOne(id) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      // Oppdater advarsler
+      setWarnings(checkConflicts(next));
       return next;
     });
   }
+  
   function selectAllFiltered() {
     setSelected((prev) => {
       const next = new Set(prev);
       for (const id of filteredIds) next.add(id);
+      setWarnings(checkConflicts(next));
       return next;
     });
   }
+  
   function deselectAllFiltered() {
     setSelected((prev) => {
       const next = new Set(prev);
       for (const id of filteredIds) next.delete(id);
+      setWarnings(checkConflicts(next));
       return next;
     });
   }
+
+  // --- Presets (forhåndsvalg) ------------------------------------------------
+  const presets = useMemo(() => [
+    {
+      id: "blank",
+      label: "Blankt ark",
+      description: "Start fra NB25-banen",
+      apply: () => {
+        setSelected(new Set());
+        setWarnings([]);
+      }
+    },
+    {
+      id: "low-cost",
+      label: "Lav kostnad (<500 kr/t)",
+      description: "Kun tiltak under 500 kr/tonn",
+      apply: () => {
+        const lowCost = new Set(
+          MEASURES.filter(m => m.cost !== null && m.cost < 500).map(m => m.t)
+        );
+        setSelected(lowCost);
+        setWarnings(checkConflicts(lowCost));
+      }
+    },
+    {
+      id: "transport",
+      label: "Transporttiltak",
+      description: "Landtransport + Sjøfart",
+      apply: () => {
+        const transport = new Set(
+          MEASURES.filter(m => m.c === "Landtransport" || m.c === "Sjøfart").map(m => m.t)
+        );
+        setSelected(transport);
+        setWarnings(checkConflicts(transport));
+      }
+    },
+    {
+      id: "industry-ccs",
+      label: "Industri + CCS",
+      description: "Industritiltak inkl. karbonfangst",
+      apply: () => {
+        const industry = new Set(
+          MEASURES.filter(m => m.c === "Industri").map(m => m.t)
+        );
+        setSelected(industry);
+        setWarnings(checkConflicts(industry));
+      }
+    },
+    {
+      id: "all",
+      label: "Alt valgt",
+      description: "Teoretisk maksimum (ikke realistisk)",
+      apply: () => {
+        const all = new Set(MEASURES.map(m => m.t));
+        setSelected(all);
+        setWarnings(checkConflicts(all));
+      }
+    },
+  ], []);
 
   // --- Sortering -------------------------------------------------------------
   function handleSort(column) {
@@ -941,6 +1076,55 @@ export default function KlimakurPrestigeDashboard() {
             </div>
           </section>
 
+          {/* Presets og advarsler */}
+          <section className="bg-[#F3EBD9] border border-[#C9B27C]/80 rounded-3xl p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-4">
+              <div>
+                <h2 className="text-lg text-[#2F5D3A] tracking-wide">Velg tiltak</h2>
+                <p className="text-xs italic opacity-70">
+                  Start fra blankt ark eller velg et forhåndsdefinert scenario
+                </p>
+              </div>
+            </div>
+            
+            {/* Preset-knapper */}
+            <div className="flex gap-2 flex-wrap mb-4">
+              {presets.map(preset => (
+                <button
+                  key={preset.id}
+                  onClick={preset.apply}
+                  className="px-3 py-1.5 rounded-xl text-sm border border-[#C9B27C] bg-[#F7F3E8] text-[#2F5D3A] hover:bg-[#EDE1C9] transition"
+                  title={preset.description}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            
+            {/* Advarsler om overlapp */}
+            {warnings.length > 0 && (
+              <div className="bg-[#FDF6E3] border border-[#C9A227]/50 rounded-xl p-3 mb-4">
+                <p className="text-sm font-semibold text-[#8B4513] mb-2">⚠️ Mulig overlapp mellom tiltak</p>
+                <ul className="text-xs text-[#2A2A2A]/80 space-y-1">
+                  {warnings.map(w => (
+                    <li key={w.key}>• {w.message}</li>
+                  ))}
+                </ul>
+                <p className="text-xs text-[#2A2A2A]/60 mt-2 italic">
+                  Noen tiltak kan ikke summeres fullt ut. Dette er til informasjon – du kan fortsatt velge begge.
+                </p>
+              </div>
+            )}
+            
+            {/* Info om blankt ark */}
+            {rowsSelected.length === 0 && (
+              <div className="text-sm text-[#2A2A2A]/70 bg-[#F7F3E8] border border-[#C9B27C]/30 rounded-xl p-3 mb-4">
+                <span className="font-semibold text-[#2F5D3A]">Ingen tiltak valgt.</span> Du starter fra NB25-referansebanen (31,7 Mt i 2035). 
+                Velg tiltak i tabellen nedenfor eller bruk et av forhåndsvalgene over.
+              </div>
+            )}
+          </section>
+
           {/* Nøkkeltall */}
           <section className="bg-[#F3EBD9] border border-[#C9B27C]/80 rounded-3xl p-4 sm:p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
@@ -979,7 +1163,7 @@ export default function KlimakurPrestigeDashboard() {
                   className="px-3 py-1.5 rounded-xl text-sm border border-[#8B4513]/50 bg-[#F7F3E8] text-[#8B4513] hover:bg-[#EDE1C9] transition"
                   title="Nullstill alle valg, overstyringer og innstillinger"
                 >
-                  ↺ Nullstill alt
+                  ↺ Blankt ark
                 </button>
               </div>
             </div>
