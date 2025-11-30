@@ -11,6 +11,8 @@ import {
   ComposedChart,
   Cell,
   LabelList,
+  LineChart,
+  Line,
 } from "recharts";
 
 // --- Referansedata for klimamål og NB25-banen --------------------------------
@@ -471,6 +473,15 @@ export default function KlimakurPrestigeDashboard() {
     return rowsAll.filter((r) => selected.has(r.tiltak));
   }, [rowsAll, selected]);
 
+  // Totaler for viste (filtrerte) tiltak
+  const displayedTotals = useMemo(() => {
+    const displayedRows = measures.map(m => rowsMap.get(m.t)).filter(Boolean);
+    const potKt = displayedRows.reduce((a, r) => a + r.potensialKt, 0);
+    const potMt = potKt / 1000;
+    const cost = displayedRows.reduce((a, r) => a + (r.sumMrd ?? 0), 0);
+    return { potKt, potMt, cost };
+  }, [measures, rowsMap]);
+
   const totals = useMemo(() => {
     const potKt = rowsSelected.reduce((a, r) => a + r.potensialKt, 0);
     const potMt = potKt / 1000;
@@ -562,48 +573,15 @@ export default function KlimakurPrestigeDashboard() {
     })).sort((a, b) => a.kategori.localeCompare(b.kategori));
   }, [rowsSelected]);
 
-  // Data for waterfall-graf (viser trinnvis reduksjon)
-  const waterfallData = useMemo(() => {
-    const { baseline1990, ref2035, coveredByNB25, extraCut, emissionsWithMeasures } = targetAnalysis;
+  // Data for linje-graf (utslippsbane over tid)
+  const lineChartData = useMemo(() => {
+    const { baseline1990, ref2035, emissionsWithMeasures } = targetAnalysis;
     
-    // Waterfall: base = usynlig del, value = synlig del
     return [
-      {
-        label: "1990",
-        base: 0,
-        value: baseline1990,
-        total: baseline1990,
-        description: "Utslipp i referanseåret",
-        color: "#8B9D77",
-        isStart: true,
-      },
-      {
-        label: "NB25-kutt",
-        base: ref2035,
-        value: coveredByNB25,
-        total: ref2035,
-        description: `−${nb(coveredByNB25, 1)} Mt fra vedtatt politikk`,
-        color: "#C9B27C",
-        isReduction: true,
-      },
-      {
-        label: "Tiltak-kutt",
-        base: Math.max(0, emissionsWithMeasures),
-        value: extraCut,
-        total: Math.max(0, emissionsWithMeasures),
-        description: `−${nb(extraCut, 1)} Mt fra valgte tiltak`,
-        color: "#2F5D3A",
-        isReduction: true,
-      },
-      {
-        label: "Resultat",
-        base: 0,
-        value: Math.max(0, emissionsWithMeasures),
-        total: Math.max(0, emissionsWithMeasures),
-        description: "Utslipp i 2035 med tiltak",
-        color: emissionsWithMeasures <= targetAnalysis.targetLevel ? "#2F5D3A" : "#8B4513",
-        isEnd: true,
-      },
+      { year: "1990", emissions: baseline1990, label: "1990" },
+      { year: "2023", emissions: 46.6, label: "2023" }, // Omtrentlig dagens nivå
+      { year: "NB25", emissions: ref2035, label: "2035 (NB25)" },
+      { year: "Tiltak", emissions: Math.max(0, emissionsWithMeasures), label: "2035 + tiltak" },
     ];
   }, [targetAnalysis]);
 
@@ -858,14 +836,14 @@ export default function KlimakurPrestigeDashboard() {
               </div>
             )}
 
-            {/* Waterfall-graf: Trinnvis reduksjon fra 1990 til resultat */}
+            {/* Linjegraf: Utslippsbane over tid */}
             <div className="mt-6">
-              <h4 className="text-sm font-semibold text-[#2F5D3A] mb-2">Trinnvis reduksjon: 1990 → 2035</h4>
-              <div className="h-72 sm:h-80">
+              <h4 className="text-sm font-semibold text-[#2F5D3A] mb-2">Utslippsbane: 1990 → 2035</h4>
+              <div className="h-64 sm:h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={waterfallData} margin={{ top: 20, right: 80, bottom: 20, left: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#CBBF9F" strokeOpacity={0.4} vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#2F5D3A" }} />
+                  <LineChart data={lineChartData} margin={{ top: 20, right: 80, bottom: 20, left: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#CBBF9F" strokeOpacity={0.4} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#2F5D3A" }} />
                     <YAxis 
                       domain={[0, 55]} 
                       tick={{ fontSize: 11, fill: "#2A2A2A" }} 
@@ -876,14 +854,9 @@ export default function KlimakurPrestigeDashboard() {
                         if (!active || !payload || !payload.length) return null;
                         const data = payload[0].payload;
                         return (
-                          <div className="bg-[#F7F3E8] border border-[#C9B27C]/80 rounded-xl p-3 shadow-lg font-serif text-sm max-w-xs">
+                          <div className="bg-[#F7F3E8] border border-[#C9B27C]/80 rounded-xl p-3 shadow-lg font-serif text-sm">
                             <p className="font-semibold text-[#2F5D3A] mb-1">{data.label}</p>
-                            <p className="text-xs text-[#2A2A2A]/70 italic">{data.description}</p>
-                            {data.isReduction ? (
-                              <p className="mt-1">Kutt: <span className="font-semibold text-[#2F5D3A]">−{nb(data.value, 1)} Mt</span></p>
-                            ) : (
-                              <p className="mt-1">Nivå: <span className="font-semibold">{nb(data.total, 1)} Mt</span></p>
-                            )}
+                            <p>Utslipp: <span className="font-semibold">{nb(data.emissions, 1)} Mt CO₂e</span></p>
                           </div>
                         );
                       }}
@@ -917,26 +890,20 @@ export default function KlimakurPrestigeDashboard() {
                       }}
                     />
                     
-                    {/* Usynlig base-søyle (løfter de synlige søylene) */}
-                    <Bar dataKey="base" stackId="waterfall" fill="transparent" />
-                    
-                    {/* Synlig verdi-søyle */}
-                    <Bar dataKey="value" stackId="waterfall" radius={[4, 4, 0, 0]}>
-                      {waterfallData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                      <LabelList 
-                        dataKey="total" 
-                        position="top" 
-                        formatter={(val) => `${nb(val, 1)} Mt`}
-                        style={{ fontSize: 11, fill: "#2A2A2A", fontWeight: 600 }}
-                      />
-                    </Bar>
-                  </ComposedChart>
+                    {/* Utslippslinje */}
+                    <Line 
+                      type="monotone" 
+                      dataKey="emissions" 
+                      stroke="#2F5D3A" 
+                      strokeWidth={3}
+                      dot={{ fill: "#2F5D3A", strokeWidth: 2, r: 5 }}
+                      activeDot={{ r: 7, fill: "#C9B27C" }}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
               <p className="text-xs text-[#2A2A2A]/60 mt-2 text-center italic">
-                Waterfall: Startpunkt → kutt fra NB25 → kutt fra tiltak → resultat. Stiplede linjer = 2035-mål.
+                Linjen viser utslippsnivå. Stiplede linjer = 2035-mål (70% og 75% kutt fra 1990).
               </p>
             </div>
 
@@ -1326,13 +1293,13 @@ export default function KlimakurPrestigeDashboard() {
                     </tr>
                   );
                 })}
-                <tr className="font-semibold">
+                <tr className="font-semibold border-t border-[#C9B27C]/80">
                   <td className="py-2 pr-2" colSpan={3}>
-                    Sum (valgte)
+                    Sum (viste)
                   </td>
-                    <td className="py-2 pr-2 text-right">{nb(totals.potMt, 2)}</td>
+                  <td className="py-2 pr-2 text-right">{nb(displayedTotals.potMt, 2)}</td>
                   <td></td>
-                  <td className="py-2 pr-2 text-right">{nb(totals.cost, 2)}</td>
+                  <td className="py-2 pr-2 text-right">{nb(displayedTotals.cost, 2)}</td>
                 </tr>
               </tbody>
             </table>
