@@ -828,7 +828,7 @@ export default function KlimakurPrestigeDashboard() {
                 <p className="text-xs italic opacity-70">
                   Norge har vedtatt 70–75 % kutt fra 1990-nivå innen 2035
               </p>
-            </div>
+              </div>
                   <select
                 value={selectedTarget}
                 onChange={(e) => setSelectedTarget(e.target.value)}
@@ -838,7 +838,7 @@ export default function KlimakurPrestigeDashboard() {
                   <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
-            </div>
+              </div>
 
             {/* Forklaring av beregning */}
             <div className="text-sm text-[#2A2A2A]/80 mb-4 leading-relaxed bg-[#F7F3E8] border border-[#C9B27C]/50 rounded-xl p-3">
@@ -895,20 +895,33 @@ export default function KlimakurPrestigeDashboard() {
                   title={`Valgte tiltak: ${nb(targetAnalysis.extraCut, 1)} Mt`}
                 />
               </div>
-              <div className="flex flex-wrap justify-between text-[10px] text-[#2A2A2A]/60 mt-1 gap-x-3">
-                <span>
+              <div className="relative h-5 text-[10px] text-[#2A2A2A]/70 mt-1">
+                {/* NB25 label - centered under NB25 segment */}
+                <div 
+                  className="absolute top-0 flex items-center justify-center"
+                  style={{ 
+                    left: 0, 
+                    width: `${Math.min(100, targetAnalysis.nb25ContributionPercent)}%` 
+                  }}
+                >
                   <span className="inline-block w-2 h-2 rounded-full bg-[#C9B27C] mr-1"></span>
                   NB25: {nb(targetAnalysis.nb25ContributionPercent, 0)}%
-                </span>
-                <span>
-                  <span className="inline-block w-2 h-2 rounded-full bg-[#2F5D3A] mr-1"></span>
-                  Tiltak: {nb(Math.max(0, targetAnalysis.coveragePercent - targetAnalysis.nb25ContributionPercent), 0)}%
-                </span>
-                <span className="font-semibold">
-                  = {nb(Math.min(100, targetAnalysis.coveragePercent), 0)}% av målet
-                </span>
                 </div>
+                {/* Tiltak label - centered under tiltak segment */}
+                {targetAnalysis.coveragePercent > targetAnalysis.nb25ContributionPercent && (
+                  <div 
+                    className="absolute top-0 flex items-center justify-center"
+                    style={{ 
+                      left: `${Math.min(100, targetAnalysis.nb25ContributionPercent)}%`, 
+                      width: `${Math.min(100 - targetAnalysis.nb25ContributionPercent, Math.max(0, targetAnalysis.coveragePercent - targetAnalysis.nb25ContributionPercent))}%` 
+                    }}
+                  >
+                    <span className="inline-block w-2 h-2 rounded-full bg-[#2F5D3A] mr-1"></span>
+                    Tiltak: {nb(Math.max(0, targetAnalysis.coveragePercent - targetAnalysis.nb25ContributionPercent), 0)}%
+                  </div>
+                )}
               </div>
+            </div>
 
             {/* Status-melding */}
             {!targetAnalysis.reachesTarget ? (
@@ -1001,11 +1014,11 @@ export default function KlimakurPrestigeDashboard() {
               <p className="text-xs text-[#2A2A2A]/60 mt-2 text-center italic">
                 Søylene viser utslippsnivå. Stiplede linjer viser 2035-målene (70% og 75% kutt fra 1990).
               </p>
-            </div>
+                </div>
 
             <div className="mt-4 text-xs text-[#2A2A2A]/60">
               Kilde: <a href={CLIMATE_CONTEXT.source} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#2F5D3A]">Miljødirektoratet – Klimatiltak i Norge 2025</a> (basert på NB25-referansebanen)
-            </div>
+              </div>
           </section>
 
           {/* Advarsler og info */}
