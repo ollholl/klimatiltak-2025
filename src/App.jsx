@@ -869,7 +869,7 @@ export default function KlimakurPrestigeDashboard() {
               <h4 className="text-sm font-semibold text-[#2F5D3A] mb-2">Utslippsnivå: 1990 → NB25 → NB25 + tiltak</h4>
               <div className="h-64 sm:h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={emissionsChartData} margin={{ top: 20, right: 20, bottom: 20, left: 10 }}>
+                  <ComposedChart data={emissionsChartData} margin={{ top: 20, right: 80, bottom: 20, left: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#CBBF9F" strokeOpacity={0.4} vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#2F5D3A" }} />
                     <YAxis 
@@ -886,7 +886,7 @@ export default function KlimakurPrestigeDashboard() {
                       strokeWidth={2}
                       strokeDasharray="8 4"
                       label={{ 
-                        value: `70 %: ${nb(CLIMATE_CONTEXT.targets["70% kutt"].level, 1)} Mt`, 
+                        value: `70%: ${nb(CLIMATE_CONTEXT.targets["70% kutt"].level, 1)} Mt`, 
                         position: 'right', 
                         fontSize: 10, 
                         fill: "#2F5D3A" 
@@ -900,7 +900,7 @@ export default function KlimakurPrestigeDashboard() {
                       strokeWidth={2}
                       strokeDasharray="8 4"
                       label={{ 
-                        value: `75 %: ${nb(CLIMATE_CONTEXT.targets["75% kutt"].level, 1)} Mt`, 
+                        value: `75%: ${nb(CLIMATE_CONTEXT.targets["75% kutt"].level, 1)} Mt`, 
                         position: 'right', 
                         fontSize: 10, 
                         fill: "#8B4513" 
@@ -923,7 +923,7 @@ export default function KlimakurPrestigeDashboard() {
                 </ResponsiveContainer>
               </div>
               <p className="text-xs text-[#2A2A2A]/60 mt-2 text-center italic">
-                Søylene viser utslippsnivå. Stiplede linjer viser 2035-målene (70 % og 75 % kutt fra 1990).
+                Søylene viser utslippsnivå. Stiplede linjer viser 2035-målene (70% og 75% kutt fra 1990).
               </p>
             </div>
 
