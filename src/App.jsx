@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -676,7 +676,6 @@ export default function KlimakurPrestigeDashboard() {
     setDefaultUnknownCost(1500);
     setSelectedTarget("70% kutt");
     setSelected(new Set()); // Start fra blankt ark
-    setWarnings([]);
     setFilterCat("Alle");
     setFilterCostType("alle");
     setSearch("");
@@ -693,8 +692,8 @@ export default function KlimakurPrestigeDashboard() {
   const noneFilteredSelected = filteredIds.every((id) => !selected.has(id));
 
   // Sjekk konflikter mellom valgte tiltak
-  function checkConflicts(selectedSet) {
-    const warnings = [];
+  const checkConflicts = useCallback((selectedSet) => {
+    const foundWarnings = [];
     const selectedIds = new Set(
       Array.from(selectedSet)
         .map(title => getMeasureId(title))
@@ -706,8 +705,8 @@ export default function KlimakurPrestigeDashboard() {
       const matchingIds = pair.ids.filter(id => selectedIds.has(id));
       if (matchingIds.length >= 2) {
         const key = matchingIds.sort().join('-');
-        if (!warnings.some(w => w.key === key)) {
-          warnings.push({
+        if (!foundWarnings.some(w => w.key === key)) {
+          foundWarnings.push({
             key,
             ids: matchingIds,
             message: pair.description
@@ -715,8 +714,13 @@ export default function KlimakurPrestigeDashboard() {
         }
       }
     }
-    return warnings;
-  }
+    return foundWarnings;
+  }, []);
+
+  // Oppdater advarsler når selected endres
+  useEffect(() => {
+    setWarnings(checkConflicts(selected));
+  }, [selected, checkConflicts]);
 
   function toggleOne(id) {
     setSelected((prev) => {
@@ -726,8 +730,6 @@ export default function KlimakurPrestigeDashboard() {
       } else {
         next.add(id);
       }
-      // Oppdater advarsler
-      setWarnings(checkConflicts(next));
       return next;
     });
   }
@@ -736,7 +738,6 @@ export default function KlimakurPrestigeDashboard() {
     setSelected((prev) => {
       const next = new Set(prev);
       for (const id of filteredIds) next.add(id);
-      setWarnings(checkConflicts(next));
       return next;
     });
   }
@@ -745,7 +746,6 @@ export default function KlimakurPrestigeDashboard() {
     setSelected((prev) => {
       const next = new Set(prev);
       for (const id of filteredIds) next.delete(id);
-      setWarnings(checkConflicts(next));
       return next;
     });
   }
