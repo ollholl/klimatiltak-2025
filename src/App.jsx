@@ -318,6 +318,7 @@ export default function KlimakurPrestigeDashboard() {
     () => initialUrlState?.t || "70% kutt"
   );
   const [filterCat, setFilterCat] = useState("Alle");
+  const [filterCostType, setFilterCostType] = useState("alle"); // "alle" | "kjent" | "antatt"
   const [search, setSearch] = useState("");
   const [sortColumn, setSortColumn] = useState(null); // null | "potensialKt" | "tiltak" | "kategori" | "kostnad"
   const [sortDirection, setSortDirection] = useState("desc"); // "asc" | "desc"
@@ -435,7 +436,13 @@ export default function KlimakurPrestigeDashboard() {
     const base = MEASURES;
     let filtered = base
       .filter((m) => (filterCat === "Alle" ? true : m.c === filterCat))
-      .filter((m) => (search.trim() ? m.t.toLowerCase().includes(search.toLowerCase()) : true));
+      .filter((m) => (search.trim() ? m.t.toLowerCase().includes(search.toLowerCase()) : true))
+      .filter((m) => {
+        if (filterCostType === "alle") return true;
+        if (filterCostType === "kjent") return m.cost !== null;
+        if (filterCostType === "antatt") return m.cost === null;
+        return true;
+      });
     
     // Sortering
     if (sortColumn) {
@@ -480,7 +487,7 @@ export default function KlimakurPrestigeDashboard() {
     }
     
     return filtered;
-  }, [filterCat, search, sortColumn, sortDirection, rowsMap, originalOrder]);
+  }, [filterCat, filterCostType, search, sortColumn, sortDirection, rowsMap, originalOrder]);
 
   const rowsSelected = useMemo(() => {
     return rowsAll.filter((r) => selected.has(r.tiltak));
@@ -640,6 +647,7 @@ export default function KlimakurPrestigeDashboard() {
     setSelectedTarget("70% kutt");
     setSelected(new Set(MEASURES.map((m) => m.t)));
     setFilterCat("Alle");
+    setFilterCostType("alle");
     setSearch("");
     setSortColumn(null);
     // Fjern lagret state
@@ -1120,10 +1128,15 @@ export default function KlimakurPrestigeDashboard() {
               <div>
                 <h3 className="text-lg text-[#2F5D3A] mb-1 tracking-wide">Tiltak – detaljer</h3>
                 <p className="text-xs italic opacity-75">
-                  Alle tiltak med potensial, tiltakskost og kostnadsbidrag.
+                  Viser {measures.length} av {MEASURES.length} tiltak
+                  {filterCostType !== "alle" && (
+                    <span className="ml-1">
+                      ({filterCostType === "kjent" ? "kun kjent kostnad" : "kun antatt kostnad"})
+                    </span>
+                  )}
                   {sortColumn && (
-                    <span className="ml-2 font-semibold text-[#2F5D3A]">
-                      (Sortert: {sortColumn === "potensialKt" ? "Potensial" : sortColumn === "kostnad" ? "Kostnad" : sortColumn === "tiltak" ? "Tiltak" : "Kategori"} {sortDirection === "desc" ? "↓" : "↑"})
+                    <span className="ml-1 font-semibold text-[#2F5D3A]">
+                      · Sortert: {sortColumn === "potensialKt" ? "Potensial" : sortColumn === "kostnad" ? "Kostnad" : sortColumn === "tiltak" ? "Tiltak" : "Kategori"} {sortDirection === "desc" ? "↓" : "↑"}
                     </span>
                   )}
                 </p>
@@ -1141,6 +1154,18 @@ export default function KlimakurPrestigeDashboard() {
                         {cat}
                       </option>
                     ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs opacity-70">Kostnadsdata</span>
+                  <select
+                    className="border border-[#C9B27C]/70 bg-[#F7F3E8] rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#2F5D3A]"
+                    value={filterCostType}
+                    onChange={(e) => setFilterCostType(e.target.value)}
+                  >
+                    <option value="alle">Alle</option>
+                    <option value="kjent">Kun kjent kostnad</option>
+                    <option value="antatt">Kun antatt kostnad</option>
                   </select>
                 </label>
                 <label className="flex flex-col gap-1">
