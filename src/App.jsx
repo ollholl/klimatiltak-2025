@@ -862,7 +862,7 @@ export default function KlimakurPrestigeDashboard() {
               <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-4">
                 <div className="text-xs uppercase tracking-[0.1em] text-[#2F5D3A]/70 mb-1">Gap til mål</div>
                 <div className={`text-2xl font-semibold ${targetAnalysis.gap > 0 ? 'text-[#8B4513]' : 'text-[#2F5D3A]'}`}>
-                  {targetAnalysis.gap > 0 ? nb(targetAnalysis.gap, 1) + " Mt" : "✓ Nådd"}
+                  {targetAnalysis.gap > 0 ? nb(targetAnalysis.gap, 1) + " Mt" : "Nådd"}
                 </div>
                 <div className="text-xs text-[#2A2A2A]/60">
                   {targetAnalysis.gap > 0 
@@ -932,7 +932,7 @@ export default function KlimakurPrestigeDashboard() {
               </div>
             ) : (
               <div className="text-sm text-[#2A2A2A] bg-[#F7F3E8] border border-[#2F5D3A]/30 rounded-xl p-3">
-                <span className="font-semibold text-[#2F5D3A]">✓ Målet nås uten kvoter!</span> Nødvendig kutt: {nb(targetAnalysis.totalRequiredCut, 1)} Mt.
+                <span className="font-semibold text-[#2F5D3A]">Målet nås uten kvoter.</span> Nødvendig kutt: {nb(targetAnalysis.totalRequiredCut, 1)} Mt.
                 Referansebanen: {nb(targetAnalysis.coveredByNB25, 1)} Mt + tiltak: {nb(targetAnalysis.extraCut, 1)} Mt 
                 = {nb(targetAnalysis.totalCovered, 1)} Mt dekket.
               </div>
@@ -1078,7 +1078,7 @@ export default function KlimakurPrestigeDashboard() {
                   className="px-3 py-1.5 rounded-xl text-sm border border-[#C9B27C] bg-[#F7F3E8] text-[#2F5D3A] hover:bg-[#EDE1C9] transition flex items-center gap-1"
                 >
                   {linkCopied ? (
-                    <>✓ Kopiert!</>
+                    <>Kopiert!</>
                   ) : (
                     <>Del utvalg</>
                   )}
