@@ -337,7 +337,7 @@ export default function KlimakurPrestigeDashboard() {
   // Kopier-lenke state
   const [linkCopied, setLinkCopied] = useState(false);
   
-  // Oppdater URL og localStorage når state endres
+  // Lagre til localStorage når state endres (men ikke til URL)
   useEffect(() => {
     const deselectedIndices = MEASURES
       .map((m, i) => selected.has(m.t) ? null : i)
@@ -349,19 +349,29 @@ export default function KlimakurPrestigeDashboard() {
     if (defaultUnknownCost !== 1500) state.d = defaultUnknownCost;
     if (selectedTarget !== "70% kutt") state.t = selectedTarget;
     
-    // Lagre til localStorage
+    // Lagre til localStorage (men IKKE til URL - det skjer kun ved "Del utvalg")
     saveToStorage(state);
-    
-    // Oppdater URL hash
-    const newHash = Object.keys(state).length > 0 ? encodeUrlState(state) : '';
-    if (window.location.hash !== newHash) {
-      window.history.replaceState(null, '', newHash || window.location.pathname);
-    }
   }, [selected, costOverrides, defaultUnknownCost, selectedTarget]);
   
   // Kopier delbar lenke til utklippstavle
   const copyShareLink = async () => {
     try {
+      // Bygg state for URL
+      const deselectedIndices = MEASURES
+        .map((m, i) => selected.has(m.t) ? null : i)
+        .filter((i) => i !== null);
+      
+      const state = {};
+      if (deselectedIndices.length > 0) state.x = deselectedIndices;
+      if (Object.keys(costOverrides).length > 0) state.o = costOverrides;
+      if (defaultUnknownCost !== 1500) state.d = defaultUnknownCost;
+      if (selectedTarget !== "70% kutt") state.t = selectedTarget;
+      
+      // Oppdater URL med state
+      const newHash = Object.keys(state).length > 0 ? encodeUrlState(state) : '';
+      window.history.replaceState(null, '', newHash || window.location.pathname);
+      
+      // Kopier den oppdaterte URL-en
       await navigator.clipboard.writeText(window.location.href);
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
@@ -957,7 +967,7 @@ export default function KlimakurPrestigeDashboard() {
                   {linkCopied ? (
                     <>✓ Kopiert!</>
                   ) : (
-                    <>📋 Del utvalg</>
+                    <>Del utvalg</>
                   )}
                 </button>
                 <button
