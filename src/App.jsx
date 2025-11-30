@@ -20,9 +20,8 @@ import {
 // Alle tiltak i KiN 2025 er TILLEGGSKUTT utover denne banen.
 //
 // Kilder:
-// - SSB: https://www.ssb.no/natur-og-miljo/forurensning-og-klima/statistikk/utslipp-til-luft
-// - NB25/Klimastatus og -plan: https://www.regjeringen.no/no/dokumenter/nasjonalbudsjettet-2025/id2899500/
 // - Miljødirektoratet KiN 2025: https://www.miljodirektoratet.no/publikasjoner/2025/januar-2025/klimatiltak-i-norge-kunnskapsgrunnlag-2025/
+// (Mdir-rapporten baserer seg på NB25-referansebanen og SSB-statistikk)
 
 const CLIMATE_CONTEXT = {
   // Baseline og referansebane (NB25 = Nasjonalbudsjettet 2025 / Klimastatus og -plan)
@@ -46,12 +45,8 @@ const CLIMATE_CONTEXT = {
     },
   },
   
-  // Kilder med URL
-  sources: {
-    ssb: "https://www.ssb.no/natur-og-miljo/forurensning-og-klima/statistikk/utslipp-til-luft",
-    nb25: "https://www.regjeringen.no/no/dokumenter/nasjonalbudsjettet-2025/id2899500/",
-    mdir: "https://www.miljodirektoratet.no/publikasjoner/2025/januar-2025/klimatiltak-i-norge-kunnskapsgrunnlag-2025/",
-  }
+  // Kilde
+  source: "https://www.miljodirektoratet.no/publikasjoner/2025/januar-2025/klimatiltak-i-norge-kunnskapsgrunnlag-2025/"
 };
 
 // --- Hjelpefunksjon for å generere URL til Miljødirektoratets tiltaksark -----
@@ -931,9 +926,7 @@ export default function KlimakurPrestigeDashboard() {
             </div>
 
             <div className="mt-4 text-xs text-[#2A2A2A]/60">
-              Kilder: <a href={CLIMATE_CONTEXT.sources.ssb} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#2F5D3A]">SSB</a> · 
-              <a href={CLIMATE_CONTEXT.sources.nb25} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#2F5D3A] ml-1">Nasjonalbudsjettet 2025</a> · 
-              <a href={CLIMATE_CONTEXT.sources.mdir} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#2F5D3A] ml-1">Miljødirektoratet</a>
+              Kilde: <a href={CLIMATE_CONTEXT.source} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#2F5D3A]">Miljødirektoratet – Klimatiltak i Norge 2025</a> (basert på NB25-referansebanen)
             </div>
           </section>
 

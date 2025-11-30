@@ -35,15 +35,11 @@ Dette gjør verktøyet kompatibelt med offisielle norske klimaregnskaper og EU-m
 - 📱 Responsivt design
 - 🖨️ Print-vennlig
 
-## Datakilder
+## Datakilde
 
 - [Miljødirektoratet: Klimatiltak i Norge – Kunnskapsgrunnlag 2025 (M 2920)](https://www.miljodirektoratet.no/publikasjoner/2025/januar-2025/klimatiltak-i-norge-kunnskapsgrunnlag-2025/)
-  - Presiserer at alle tiltak potensialberegnes som tillegg til NB25-referansebanen
-- [Nasjonalbudsjettet 2025 / Klimastatus og -plan](https://www.regjeringen.no/no/dokumenter/nasjonalbudsjettet-2025/id2899500/)
-  - Angir utslipp i 2035 med vedtatt politikk til 31,7 Mt CO₂-ekv
-  - Angir 1990-baseline som 51 Mt CO₂-ekv
-- [SSB: Utslipp til luft](https://www.ssb.no/natur-og-miljo/forurensning-og-klima/statistikk/utslipp-til-luft)
-  - Bekrefter 1990-nivået og brukes for konsistens i baselinene
+
+Rapporten baserer seg på NB25-referansebanen (31,7 Mt i 2035) og SSB-statistikk (51 Mt i 1990).
 
 ## Teknologi
 
