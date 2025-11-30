@@ -66,16 +66,21 @@ function getMdirUrl(measure) {
   if (!match) return null;
   const id = match[1].toLowerCase();
   
-  // Lag slug fra tittelen (fjern ID-prefix, lowercase, erstatt mellomrom med bindestrek)
-  const titleWithoutId = measure.t.replace(/^[A-Z]\d+(-\d+)?\s+/, '');
-  const slug = titleWithoutId
-    .toLowerCase()
-    .replace(/[æ]/g, 'ae')
-    .replace(/[ø]/g, 'o')
-    .replace(/[å]/g, 'a')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  // Bruk custom slug hvis definert, ellers generer fra tittel
+  let slug;
+  if (measure.slug) {
+    slug = measure.slug;
+  } else {
+    const titleWithoutId = measure.t.replace(/^[A-Z]\d+(-\d+)?\s+/, '');
+    slug = titleWithoutId
+      .toLowerCase()
+      .replace(/[æ]/g, 'ae')
+      .replace(/[ø]/g, 'o')
+      .replace(/[å]/g, 'a')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
   
   const categoryPath = CATEGORY_URL_MAP[measure.c] || 'andre-utslipp';
   return `https://www.miljodirektoratet.no/tjenester/klimatiltak/tiltaksark-2025/${categoryPath}/${id}-${slug}/`;
@@ -142,7 +147,7 @@ const MEASURES = [
   // PETROLEUM (P01-P05)
   // ============================================================================
   { t: "P01 Elektrifisering i petroleumssektoren", c: "Petroleum", p: 2139, cost: 2100 },
-  { t: "P02 Kraft fra flytende gasskraftverk med CCS", c: "Petroleum", p: 0, cost: null },
+  { t: "P02 Kraft fra flytende gasskraftverk med CCS", c: "Petroleum", p: 0, cost: null, slug: "offshore-gasskraftverk-med-ccs" },
   { t: "P03 Økt gjenvinning av metan og NMVOC ved råoljelasting offshore", c: "Petroleum", p: 24, cost: null },
   { t: "P04 Reduksjon av utslipp av metan og NMVOC fra kaldventilering offshore", c: "Petroleum", p: 0, cost: null },
   { t: "P05 Reduksjon av metan og NMVOC fra petroleumsanlegg på land", c: "Petroleum", p: 29, cost: null },
