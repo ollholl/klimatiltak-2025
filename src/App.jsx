@@ -754,65 +754,6 @@ export default function KlimakurPrestigeDashboard() {
     });
   }
 
-  // --- Presets (forhåndsvalg) ------------------------------------------------
-  const presets = useMemo(() => [
-    {
-      id: "blank",
-      label: "Blankt ark",
-      description: "Start fra NB25-banen",
-      apply: () => {
-        setSelected(new Set());
-        setWarnings([]);
-      }
-    },
-    {
-      id: "low-cost",
-      label: "Lav kostnad (<500 kr/t)",
-      description: "Kun tiltak under 500 kr/tonn",
-      apply: () => {
-        const lowCost = new Set(
-          MEASURES.filter(m => m.cost !== null && m.cost < 500).map(m => m.t)
-        );
-        setSelected(lowCost);
-        setWarnings(checkConflicts(lowCost));
-      }
-    },
-    {
-      id: "transport",
-      label: "Transporttiltak",
-      description: "Landtransport + Sjøfart",
-      apply: () => {
-        const transport = new Set(
-          MEASURES.filter(m => m.c === "Landtransport" || m.c === "Sjøfart").map(m => m.t)
-        );
-        setSelected(transport);
-        setWarnings(checkConflicts(transport));
-      }
-    },
-    {
-      id: "industry-ccs",
-      label: "Industri + CCS",
-      description: "Industritiltak inkl. karbonfangst",
-      apply: () => {
-        const industry = new Set(
-          MEASURES.filter(m => m.c === "Industri").map(m => m.t)
-        );
-        setSelected(industry);
-        setWarnings(checkConflicts(industry));
-      }
-    },
-    {
-      id: "all",
-      label: "Alt valgt",
-      description: "Teoretisk maksimum (ikke realistisk)",
-      apply: () => {
-        const all = new Set(MEASURES.map(m => m.t));
-        setSelected(all);
-        setWarnings(checkConflicts(all));
-      }
-    },
-  ], []);
-
   // --- Sortering -------------------------------------------------------------
   function handleSort(column) {
     if (sortColumn === column) {
@@ -1076,54 +1017,33 @@ export default function KlimakurPrestigeDashboard() {
             </div>
           </section>
 
-          {/* Presets og advarsler */}
-          <section className="bg-[#F3EBD9] border border-[#C9B27C]/80 rounded-3xl p-4 sm:p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-4">
-              <div>
-                <h2 className="text-lg text-[#2F5D3A] tracking-wide">Velg tiltak</h2>
-                <p className="text-xs italic opacity-70">
-                  Start fra blankt ark eller velg et forhåndsdefinert scenario
-                </p>
-              </div>
-            </div>
-            
-            {/* Preset-knapper */}
-            <div className="flex gap-2 flex-wrap mb-4">
-              {presets.map(preset => (
-                <button
-                  key={preset.id}
-                  onClick={preset.apply}
-                  className="px-3 py-1.5 rounded-xl text-sm border border-[#C9B27C] bg-[#F7F3E8] text-[#2F5D3A] hover:bg-[#EDE1C9] transition"
-                  title={preset.description}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-            
-            {/* Advarsler om overlapp */}
-            {warnings.length > 0 && (
-              <div className="bg-[#FDF6E3] border border-[#C9A227]/50 rounded-xl p-3 mb-4">
-                <p className="text-sm font-semibold text-[#8B4513] mb-2">⚠️ Mulig overlapp mellom tiltak</p>
-                <ul className="text-xs text-[#2A2A2A]/80 space-y-1">
-                  {warnings.map(w => (
-                    <li key={w.key}>• {w.message}</li>
-                  ))}
-                </ul>
-                <p className="text-xs text-[#2A2A2A]/60 mt-2 italic">
-                  Noen tiltak kan ikke summeres fullt ut. Dette er til informasjon – du kan fortsatt velge begge.
-                </p>
-              </div>
-            )}
-            
-            {/* Info om blankt ark */}
-            {rowsSelected.length === 0 && (
-              <div className="text-sm text-[#2A2A2A]/70 bg-[#F7F3E8] border border-[#C9B27C]/30 rounded-xl p-3 mb-4">
-                <span className="font-semibold text-[#2F5D3A]">Ingen tiltak valgt.</span> Du starter fra NB25-referansebanen (31,7 Mt i 2035). 
-                Velg tiltak i tabellen nedenfor eller bruk et av forhåndsvalgene over.
-              </div>
-            )}
-          </section>
+          {/* Advarsler og info */}
+          {(warnings.length > 0 || rowsSelected.length === 0) && (
+            <section className="bg-[#F3EBD9] border border-[#C9B27C]/80 rounded-3xl p-4 sm:p-5 shadow-sm">
+              {/* Advarsler om overlapp */}
+              {warnings.length > 0 && (
+                <div className="bg-[#FDF6E3] border border-[#C9A227]/50 rounded-xl p-3 mb-4">
+                  <p className="text-sm font-semibold text-[#8B4513] mb-2">⚠️ Mulig overlapp mellom tiltak</p>
+                  <ul className="text-xs text-[#2A2A2A]/80 space-y-1">
+                    {warnings.map(w => (
+                      <li key={w.key}>• {w.message}</li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-[#2A2A2A]/60 mt-2 italic">
+                    Noen tiltak kan ikke summeres fullt ut. Dette er til informasjon – du kan fortsatt velge begge.
+                  </p>
+                </div>
+              )}
+              
+              {/* Info om blankt ark */}
+              {rowsSelected.length === 0 && (
+                <div className="text-sm text-[#2A2A2A]/70 bg-[#F7F3E8] border border-[#C9B27C]/30 rounded-xl p-3">
+                  <span className="font-semibold text-[#2F5D3A]">Ingen tiltak valgt.</span> Du starter fra NB25-referansebanen (31,7 Mt i 2035). 
+                  Velg tiltak i tabellen nedenfor.
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Nøkkeltall */}
           <section className="bg-[#F3EBD9] border border-[#C9B27C]/80 rounded-3xl p-4 sm:p-5 shadow-sm">
@@ -1138,7 +1058,7 @@ export default function KlimakurPrestigeDashboard() {
                     </span>
                   )}
                 </p>
-              </div>
+                </div>
               <div className="flex gap-2 flex-wrap">
                 {Object.keys(costOverrides).length > 0 && (
                 <button
