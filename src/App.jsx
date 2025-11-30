@@ -894,41 +894,53 @@ export default function KlimakurPrestigeDashboard() {
                   className="absolute top-0 h-full transition-all duration-500 bg-[#2F5D3A]"
                   style={{ 
                     left: `${Math.min(100, targetAnalysis.nb25ContributionPercent)}%`,
-                    width: `${Math.min(100 - targetAnalysis.nb25ContributionPercent, targetAnalysis.coveragePercent - targetAnalysis.nb25ContributionPercent)}%` 
+                    width: `${Math.min(100 - targetAnalysis.nb25ContributionPercent, Math.max(0, targetAnalysis.coveragePercent - targetAnalysis.nb25ContributionPercent))}%` 
                   }}
                   title={`Valgte tiltak: ${nb(targetAnalysis.extraCut, 1)} Mt`}
                 />
-                {/* 100%-markør */}
-                <div 
-                  className="absolute top-0 h-full w-0.5 bg-[#2A2A2A]/30"
-                  style={{ left: '100%', transform: 'translateX(-1px)' }}
-                />
+                {/* Gjenstående gap (må dekkes med kvoter) */}
+                {targetAnalysis.coveragePercent < 100 && (
+                  <div 
+                    className="absolute top-0 h-full transition-all duration-500 bg-[#8B4513]/40"
+                    style={{ 
+                      left: `${Math.min(100, targetAnalysis.coveragePercent)}%`,
+                      width: `${100 - Math.min(100, targetAnalysis.coveragePercent)}%` 
+                    }}
+                    title={`Gjenstår (kvoter): ${nb(targetAnalysis.gap, 1)} Mt`}
+                  />
+                )}
               </div>
-              <div className="flex justify-between text-[10px] text-[#2A2A2A]/60 mt-1">
+              <div className="flex flex-wrap justify-between text-[10px] text-[#2A2A2A]/60 mt-1 gap-x-3">
                 <span>
                   <span className="inline-block w-2 h-2 rounded-full bg-[#C9B27C] mr-1"></span>
                   NB25: {nb(targetAnalysis.nb25ContributionPercent, 0)}%
                 </span>
                 <span>
                   <span className="inline-block w-2 h-2 rounded-full bg-[#2F5D3A] mr-1"></span>
-                  + Tiltak: {nb(Math.max(0, targetAnalysis.coveragePercent - targetAnalysis.nb25ContributionPercent), 0)}%
+                  Tiltak: {nb(Math.max(0, targetAnalysis.coveragePercent - targetAnalysis.nb25ContributionPercent), 0)}%
                 </span>
+                {targetAnalysis.coveragePercent < 100 && (
+                  <span>
+                    <span className="inline-block w-2 h-2 rounded-full bg-[#8B4513]/40 mr-1"></span>
+                    Kvoter: {nb(100 - Math.min(100, targetAnalysis.coveragePercent), 0)}%
+                  </span>
+                )}
                 <span className="font-semibold">
-                  = {nb(Math.min(100, targetAnalysis.coveragePercent), 0)}% av målet
+                  = 100%
                 </span>
-                </div>
               </div>
+            </div>
 
             {/* Status-melding */}
             {!targetAnalysis.reachesTarget ? (
               <div className="text-sm text-[#2A2A2A] bg-[#F7F3E8] border border-[#C9B27C]/50 rounded-xl p-3">
                 <span className="font-semibold text-[#2F5D3A]">Status:</span> For å nå {selectedTarget} må vi kutte {nb(targetAnalysis.totalRequiredCut, 1)} Mt fra 1990-nivå.
                 Referansebanen dekker {nb(targetAnalysis.coveredByNB25, 1)} Mt, valgte tiltak {nb(targetAnalysis.extraCut, 1)} Mt.
-                Det gjenstår {nb(targetAnalysis.gap, 1)} Mt.
+                Det gjenstår <span className="font-semibold text-[#8B4513]">{nb(targetAnalysis.gap, 1)} Mt</span> som må dekkes med kvotekjøp.
               </div>
             ) : (
               <div className="text-sm text-[#2A2A2A] bg-[#F7F3E8] border border-[#2F5D3A]/30 rounded-xl p-3">
-                <span className="font-semibold text-[#2F5D3A]">✓ Målet nås!</span> Nødvendig kutt: {nb(targetAnalysis.totalRequiredCut, 1)} Mt.
+                <span className="font-semibold text-[#2F5D3A]">✓ Målet nås uten kvoter!</span> Nødvendig kutt: {nb(targetAnalysis.totalRequiredCut, 1)} Mt.
                 Referansebanen: {nb(targetAnalysis.coveredByNB25, 1)} Mt + tiltak: {nb(targetAnalysis.extraCut, 1)} Mt 
                 = {nb(targetAnalysis.totalCovered, 1)} Mt dekket.
               </div>
