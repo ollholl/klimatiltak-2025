@@ -521,9 +521,18 @@ export default function KlimakurPrestigeDashboard() {
     const gapTo75 = Math.max(0, emissionsWithMeasures - CLIMATE_CONTEXT.targets["75% kutt"].level);
     const gap = Math.max(0, emissionsWithMeasures - targetLevel);
     
-    // Dekningsgrad: Hvor stor andel av nødvendig ekstra kutt (fra NB25 til mål) dekkes?
+    // Nødvendig ekstra kutt fra NB25 til mål
     const requiredExtraCut = ref2035 - targetLevel;
-    const coveragePercent = requiredExtraCut > 0 ? Math.min(100, (extraCut / requiredExtraCut) * 100) : 100;
+    
+    // Total fremgang mot mål (fra 1990)
+    // - Total nødvendig kutt = 1990 - mål
+    // - Allerede dekket av NB25 = 1990 - ref2035
+    // - Ekstra fra tiltak = extraCut
+    const totalRequiredCut = baseline1990 - targetLevel;
+    const coveredByNB25 = baseline1990 - ref2035;
+    const totalCovered = coveredByNB25 + extraCut;
+    const coveragePercent = totalRequiredCut > 0 ? (totalCovered / totalRequiredCut) * 100 : 100;
+    const nb25ContributionPercent = totalRequiredCut > 0 ? (coveredByNB25 / totalRequiredCut) * 100 : 0;
     
     return {
       target,
@@ -537,10 +546,14 @@ export default function KlimakurPrestigeDashboard() {
       totalCutFromBaseline,
       totalCutPercent,
       requiredExtraCut,
+      totalRequiredCut,
+      coveredByNB25,
+      totalCovered,
       gap,
       gapTo70,
       gapTo75,
       coveragePercent,
+      nb25ContributionPercent,
       reachesTarget: emissionsWithMeasures <= targetLevel,
     };
   }, [selectedTarget, totals.potMt]);
@@ -785,32 +798,61 @@ export default function KlimakurPrestigeDashboard() {
               </div>
             </div>
 
-            {/* Progress bar: Dekningsgrad av nødvendig ekstra kutt */}
+            {/* Progress bar: Total fremgang mot mål (1990 → mål) */}
             <div className="mb-4">
               <div className="flex justify-between text-xs text-[#2F5D3A]/70 mb-1">
-                <span>Dekningsgrad (ekstra kutt fra NB25 → mål)</span>
-                <span className="font-semibold text-[#2F5D3A]">{nb(targetAnalysis.coveragePercent, 0)}%</span>
+                <span>Fremgang mot mål (1990 → {selectedTarget})</span>
+                <span className="font-semibold text-[#2F5D3A]">{nb(Math.min(100, targetAnalysis.coveragePercent), 0)}%</span>
               </div>
-              <div className="relative h-4 bg-[#E8DCC8] rounded-full overflow-hidden border border-[#C9B27C]/50">
+              <div className="relative h-5 bg-[#E8DCC8] rounded-full overflow-hidden border border-[#C9B27C]/50">
+                {/* NB25-bidrag (referansebanen) */}
                 <div 
-                  className="absolute left-0 top-0 h-full rounded-full transition-all duration-500 bg-[#2F5D3A]"
-                  style={{ width: `${Math.min(100, targetAnalysis.coveragePercent)}%` }}
+                  className="absolute left-0 top-0 h-full transition-all duration-500 bg-[#C9B27C]"
+                  style={{ width: `${Math.min(100, targetAnalysis.nb25ContributionPercent)}%` }}
+                  title={`Referansebanen (NB25): ${nb(targetAnalysis.coveredByNB25, 1)} Mt`}
+                />
+                {/* Tilleggskutt fra tiltak */}
+                <div 
+                  className="absolute top-0 h-full transition-all duration-500 bg-[#2F5D3A]"
+                  style={{ 
+                    left: `${Math.min(100, targetAnalysis.nb25ContributionPercent)}%`,
+                    width: `${Math.min(100 - targetAnalysis.nb25ContributionPercent, targetAnalysis.coveragePercent - targetAnalysis.nb25ContributionPercent)}%` 
+                  }}
+                  title={`Valgte tiltak: ${nb(targetAnalysis.extraCut, 1)} Mt`}
+                />
+                {/* 100%-markør */}
+                <div 
+                  className="absolute top-0 h-full w-0.5 bg-[#2A2A2A]/30"
+                  style={{ left: '100%', transform: 'translateX(-1px)' }}
                 />
               </div>
+              <div className="flex justify-between text-[10px] text-[#2A2A2A]/60 mt-1">
+                <span>
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#C9B27C] mr-1"></span>
+                  NB25: {nb(targetAnalysis.nb25ContributionPercent, 0)}%
+                </span>
+                <span>
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#2F5D3A] mr-1"></span>
+                  + Tiltak: {nb(Math.max(0, targetAnalysis.coveragePercent - targetAnalysis.nb25ContributionPercent), 0)}%
+                </span>
+                <span className="font-semibold">
+                  = {nb(Math.min(100, targetAnalysis.coveragePercent), 0)}% av målet
+                </span>
                 </div>
+              </div>
 
             {/* Status-melding */}
             {!targetAnalysis.reachesTarget ? (
               <div className="text-sm text-[#2A2A2A] bg-[#F7F3E8] border border-[#C9B27C]/50 rounded-xl p-3">
-                <span className="font-semibold text-[#2F5D3A]">Status:</span> Referansebanen gir {nb(targetAnalysis.ref2035, 1)} Mt i 2035. 
-                Valgte tiltak kutter {nb(targetAnalysis.extraCut, 1)} Mt ekstra → {nb(Math.max(0, targetAnalysis.emissionsWithMeasures), 1)} Mt. 
-                Mål: {nb(targetAnalysis.targetLevel, 1)} Mt – det gjenstår {nb(targetAnalysis.gap, 1)} Mt.
+                <span className="font-semibold text-[#2F5D3A]">Status:</span> For å nå {selectedTarget} må vi kutte {nb(targetAnalysis.totalRequiredCut, 1)} Mt fra 1990-nivå.
+                Referansebanen dekker {nb(targetAnalysis.coveredByNB25, 1)} Mt, valgte tiltak {nb(targetAnalysis.extraCut, 1)} Mt.
+                Det gjenstår {nb(targetAnalysis.gap, 1)} Mt.
               </div>
             ) : (
               <div className="text-sm text-[#2A2A2A] bg-[#F7F3E8] border border-[#2F5D3A]/30 rounded-xl p-3">
-                <span className="font-semibold text-[#2F5D3A]">✓ Målet nås:</span> Referansebanen gir {nb(targetAnalysis.ref2035, 1)} Mt i 2035. 
-                Valgte tiltak kutter {nb(targetAnalysis.extraCut, 1)} Mt ekstra → {nb(Math.max(0, targetAnalysis.emissionsWithMeasures), 1)} Mt – 
-                under målet på {nb(targetAnalysis.targetLevel, 1)} Mt.
+                <span className="font-semibold text-[#2F5D3A]">✓ Målet nås!</span> Nødvendig kutt: {nb(targetAnalysis.totalRequiredCut, 1)} Mt.
+                Referansebanen: {nb(targetAnalysis.coveredByNB25, 1)} Mt + tiltak: {nb(targetAnalysis.extraCut, 1)} Mt 
+                = {nb(targetAnalysis.totalCovered, 1)} Mt dekket.
               </div>
             )}
 
