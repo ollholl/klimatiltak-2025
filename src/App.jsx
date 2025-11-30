@@ -894,17 +894,6 @@ export default function KlimakurPrestigeDashboard() {
                   }}
                   title={`Valgte tiltak: ${nb(targetAnalysis.extraCut, 1)} Mt`}
                 />
-                {/* Gjenstående gap (må dekkes med kvoter) */}
-                {targetAnalysis.coveragePercent < 100 && (
-                  <div 
-                    className="absolute top-0 h-full transition-all duration-500 bg-[#8B4513]/40"
-                    style={{ 
-                      left: `${Math.min(100, targetAnalysis.coveragePercent)}%`,
-                      width: `${100 - Math.min(100, targetAnalysis.coveragePercent)}%` 
-                    }}
-                    title={`Gjenstår (kvoter): ${nb(targetAnalysis.gap, 1)} Mt`}
-                  />
-                )}
               </div>
               <div className="flex flex-wrap justify-between text-[10px] text-[#2A2A2A]/60 mt-1 gap-x-3">
                 <span>
@@ -915,17 +904,11 @@ export default function KlimakurPrestigeDashboard() {
                   <span className="inline-block w-2 h-2 rounded-full bg-[#2F5D3A] mr-1"></span>
                   Tiltak: {nb(Math.max(0, targetAnalysis.coveragePercent - targetAnalysis.nb25ContributionPercent), 0)}%
                 </span>
-                {targetAnalysis.coveragePercent < 100 && (
-                  <span>
-                    <span className="inline-block w-2 h-2 rounded-full bg-[#8B4513]/40 mr-1"></span>
-                    Kvoter: {nb(100 - Math.min(100, targetAnalysis.coveragePercent), 0)}%
-                  </span>
-                )}
                 <span className="font-semibold">
-                  = 100%
+                  = {nb(Math.min(100, targetAnalysis.coveragePercent), 0)}% av målet
                 </span>
+                </div>
               </div>
-            </div>
 
             {/* Status-melding */}
             {!targetAnalysis.reachesTarget ? (
