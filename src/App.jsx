@@ -197,8 +197,6 @@ const MEASURES = [
   { t: "L11 Myrrestaurering", c: "Skog og arealbruk", p: 0, cost: null },
 ];
 
-const ALL_BINS = ["<0", "0-500", "500-1500", ">1500"];
-
 function classNames(...xs) {
   return xs.filter(Boolean).join(" ");
 }
@@ -399,11 +397,6 @@ export default function KlimakurPrestigeDashboard() {
   function itemCostMrd(m) {
     const unit = getUnitCost(m);
     return (m.p * unit) / 1e6; // kt * kr/t / 1e6 = mrd kr
-  }
-
-  // Potensial i Mt (millioner tonn)
-  function potensialMt(m) {
-    return m.p / 1000;
   }
 
   const rowsAll = useMemo(() => {
