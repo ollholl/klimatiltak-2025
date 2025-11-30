@@ -233,26 +233,6 @@ function SectorTooltip({ active, payload }) {
   );
 }
 
-// Custom tooltip for emissions pathway chart
-function EmissionsTooltip({ active, payload }) {
-  if (!active || !payload || !payload.length) return null;
-  const data = payload[0].payload;
-  return (
-    <div className="bg-[#F7F3E8] border border-[#C9B27C]/80 rounded-xl p-3 shadow-lg font-serif text-sm max-w-xs">
-      <p className="font-semibold text-[#2F5D3A] mb-1">{data.label}</p>
-      <p>Utslipp: <span className="font-semibold">{nb(data.emissions, 1)} Mt CO₂e</span></p>
-      {data.cutPercent !== undefined && (
-        <p className="text-xs text-[#2A2A2A]/70">
-          {data.cutPercent > 0 ? `${nb(data.cutPercent, 0)}% kutt fra 1990` : 'Referanseår'}
-        </p>
-      )}
-      {data.description && (
-        <p className="text-xs text-[#2A2A2A]/70 mt-1 italic">{data.description}</p>
-      )}
-    </div>
-  );
-}
-
 // --- URL & localStorage State Helpers ----------------------------------------
 const STORAGE_KEY = 'klimakur-prestige-state';
 
@@ -582,31 +562,47 @@ export default function KlimakurPrestigeDashboard() {
     })).sort((a, b) => a.kategori.localeCompare(b.kategori));
   }, [rowsSelected]);
 
-  // Data for utslippsbane-graf (3 søyler + 2 mållinjer)
-  const emissionsChartData = useMemo(() => {
-    const { baseline1990, ref2035, refCutPercent, emissionsWithMeasures, totalCutPercent } = targetAnalysis;
+  // Data for waterfall-graf (viser trinnvis reduksjon)
+  const waterfallData = useMemo(() => {
+    const { baseline1990, ref2035, coveredByNB25, extraCut, emissionsWithMeasures } = targetAnalysis;
     
+    // Waterfall: base = usynlig del, value = synlig del
     return [
       {
         label: "1990",
-        emissions: baseline1990,
-        cutPercent: 0,
-        description: "Referanseår for klimamål",
+        base: 0,
+        value: baseline1990,
+        total: baseline1990,
+        description: "Utslipp i referanseåret",
         color: "#8B9D77",
+        isStart: true,
       },
       {
-        label: "2035 (NB25)",
-        emissions: ref2035,
-        cutPercent: refCutPercent,
-        description: "Forventet med vedtatt politikk",
+        label: "NB25-kutt",
+        base: ref2035,
+        value: coveredByNB25,
+        total: ref2035,
+        description: `−${nb(coveredByNB25, 1)} Mt fra vedtatt politikk`,
         color: "#C9B27C",
+        isReduction: true,
       },
       {
-        label: "2035 + tiltak",
-        emissions: Math.max(0, emissionsWithMeasures),
-        cutPercent: totalCutPercent,
-        description: "NB25 + valgte klimatiltak",
+        label: "Tiltak-kutt",
+        base: Math.max(0, emissionsWithMeasures),
+        value: extraCut,
+        total: Math.max(0, emissionsWithMeasures),
+        description: `−${nb(extraCut, 1)} Mt fra valgte tiltak`,
         color: "#2F5D3A",
+        isReduction: true,
+      },
+      {
+        label: "Resultat",
+        base: 0,
+        value: Math.max(0, emissionsWithMeasures),
+        total: Math.max(0, emissionsWithMeasures),
+        description: "Utslipp i 2035 med tiltak",
+        color: emissionsWithMeasures <= targetAnalysis.targetLevel ? "#2F5D3A" : "#8B4513",
+        isEnd: true,
       },
     ];
   }, [targetAnalysis]);
@@ -862,12 +858,12 @@ export default function KlimakurPrestigeDashboard() {
               </div>
             )}
 
-            {/* Utslippsbane-graf */}
+            {/* Waterfall-graf: Trinnvis reduksjon fra 1990 til resultat */}
             <div className="mt-6">
-              <h4 className="text-sm font-semibold text-[#2F5D3A] mb-2">Utslippsnivå: 1990 → NB25 → NB25 + tiltak</h4>
-              <div className="h-64 sm:h-72">
+              <h4 className="text-sm font-semibold text-[#2F5D3A] mb-2">Trinnvis reduksjon: 1990 → 2035</h4>
+              <div className="h-72 sm:h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={emissionsChartData} margin={{ top: 20, right: 80, bottom: 20, left: 10 }}>
+                  <ComposedChart data={waterfallData} margin={{ top: 20, right: 80, bottom: 20, left: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#CBBF9F" strokeOpacity={0.4} vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#2F5D3A" }} />
                     <YAxis 
@@ -875,7 +871,23 @@ export default function KlimakurPrestigeDashboard() {
                       tick={{ fontSize: 11, fill: "#2A2A2A" }} 
                       label={{ value: 'Mt CO₂e', angle: -90, position: 'insideLeft', fontSize: 10, fill: "#2A2A2A" }}
                     />
-                    <Tooltip content={<EmissionsTooltip />} />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (!active || !payload || !payload.length) return null;
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-[#F7F3E8] border border-[#C9B27C]/80 rounded-xl p-3 shadow-lg font-serif text-sm max-w-xs">
+                            <p className="font-semibold text-[#2F5D3A] mb-1">{data.label}</p>
+                            <p className="text-xs text-[#2A2A2A]/70 italic">{data.description}</p>
+                            {data.isReduction ? (
+                              <p className="mt-1">Kutt: <span className="font-semibold text-[#2F5D3A]">−{nb(data.value, 1)} Mt</span></p>
+                            ) : (
+                              <p className="mt-1">Nivå: <span className="font-semibold">{nb(data.total, 1)} Mt</span></p>
+                            )}
+                          </div>
+                        );
+                      }}
+                    />
                     
                     {/* Mållinje 70% */}
                     <ReferenceLine 
@@ -905,13 +917,16 @@ export default function KlimakurPrestigeDashboard() {
                       }}
                     />
                     
-                    {/* Søyler for utslippsnivå */}
-                    <Bar dataKey="emissions" name="Utslipp" radius={[4, 4, 0, 0]}>
-                      {emissionsChartData.map((entry, index) => (
+                    {/* Usynlig base-søyle (løfter de synlige søylene) */}
+                    <Bar dataKey="base" stackId="waterfall" fill="transparent" />
+                    
+                    {/* Synlig verdi-søyle */}
+                    <Bar dataKey="value" stackId="waterfall" radius={[4, 4, 0, 0]}>
+                      {waterfallData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                       <LabelList 
-                        dataKey="emissions" 
+                        dataKey="total" 
                         position="top" 
                         formatter={(val) => `${nb(val, 1)} Mt`}
                         style={{ fontSize: 11, fill: "#2A2A2A", fontWeight: 600 }}
@@ -921,7 +936,7 @@ export default function KlimakurPrestigeDashboard() {
                 </ResponsiveContainer>
               </div>
               <p className="text-xs text-[#2A2A2A]/60 mt-2 text-center italic">
-                Søylene viser utslippsnivå. Stiplede linjer viser 2035-målene (70% og 75% kutt fra 1990).
+                Waterfall: Startpunkt → kutt fra NB25 → kutt fra tiltak → resultat. Stiplede linjer = 2035-mål.
               </p>
             </div>
 
