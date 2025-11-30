@@ -969,7 +969,7 @@ export default function KlimakurPrestigeDashboard() {
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-4">
                   <div className="text-xs uppercase tracking-[0.15em] text-[#2F5D3A] mb-1">
                   Utslippskutt
@@ -991,18 +991,7 @@ export default function KlimakurPrestigeDashboard() {
                 <div className="text-2xl text-[#2F5D3A] font-semibold">{nb(totals.avg, 0)}</div>
                 <div className="text-xs opacity-60">kr/tonn CO₂e</div>
                 </div>
-              <div className="rounded-2xl border border-[#C9B27C]/70 bg-[#F7F3E8] p-4">
-                <div className="text-xs uppercase tracking-[0.15em] text-[#2F5D3A] mb-1">
-                  Antatt kostnad
               </div>
-                <div className="text-2xl text-[#2F5D3A] font-semibold">
-                  {rowsSelected.filter(r => r.hasUnknownCost).length}
-                </div>
-                <div className="text-xs opacity-60">
-                  tiltak · {nb(rowsSelected.filter(r => r.hasUnknownCost).reduce((a, r) => a + r.potensialMt, 0), 1)} Mt
-                </div>
-              </div>
-            </div>
 
             {/* Innstilling for standardkostnad */}
             <div className="mt-4 p-4 bg-[#F7F3E8] border border-[#C9B27C]/50 rounded-2xl">
