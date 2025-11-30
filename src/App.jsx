@@ -256,7 +256,7 @@ function SectorTooltip({ active, payload }) {
       <p>Kostnad: <span className="font-semibold">{nb(data.cost, 1)} mrd kr</span></p>
       <p>Antall tiltak: <span className="font-semibold">{data.count}</span></p>
       <p className="text-xs text-[#2A2A2A]/70 mt-1">
-        Snitt tiltakskost: {data.potKt > 0 ? nb((data.cost * 1e6) / data.potKt, 0) + ' kr/t' : '—'}
+        Snitt tiltakskost: {data.potKt > 0 ? nb((data.cost * 1e6) / data.potKt, 0) + ' kr/t' : 'ikke vurdert'}
       </p>
     </div>
   );
@@ -1388,7 +1388,7 @@ export default function KlimakurPrestigeDashboard() {
                       <td className="py-1 pr-2 align-top whitespace-nowrap">{r.kategori}</td>
                       <td className="py-1 pr-2 align-top text-right">{nb(r.potensialMt, 3)}</td>
                       <td className="py-1 pr-2 align-top text-right text-[#2A2A2A]/70 text-xs">
-                        {r.costRange || <span className="italic">—</span>}
+                        {r.costRange || <span className="italic">ikke vurdert</span>}
                       </td>
                       <td className="py-1 pr-2 align-top text-right">
                         <div className="flex items-center justify-end gap-1">
