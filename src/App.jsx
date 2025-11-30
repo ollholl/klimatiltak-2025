@@ -91,15 +91,15 @@ function getMdirUrl(measure) {
 const CONFLICT_PAIRS = [
   {
     ids: ["T04", "T05", "T06"],
-    description: "Gange/sykkel, kollektiv kort og kollektiv lang – alle reduserer biltrafikk og konkurrerer delvis om de samme reisene"
+    description: "T04 (gange/sykkel), T05 (kollektiv kort) og T06 (kollektiv lang) – alle reduserer biltrafikk og konkurrerer delvis om de samme reisene"
   },
   {
     ids: ["S03", "S04"],
-    description: "Hydrogen og biogass i sjøfart – alternative nullutslippsdrivstoff som konkurrerer om samme fartøysegment"
+    description: "S03 (hydrogen) og S04 (biogass) i sjøfart – alternative nullutslippsdrivstoff som konkurrerer om samme fartøysegment"
   },
   {
     ids: ["I02", "I06"],
-    description: "CCS på industri og elektrifisering – begge reduserer utslipp fra samme prosesser, men på ulike måter"
+    description: "I02 (CCS på industri) og I06 (elektrifisering) – begge reduserer utslipp fra samme prosesser, men på ulike måter"
   },
 ];
 
