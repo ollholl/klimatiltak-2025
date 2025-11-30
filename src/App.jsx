@@ -86,23 +86,22 @@ function getMdirUrl(measure) {
   return `https://www.miljodirektoratet.no/tjenester/klimatiltak/tiltaksark-2025/${categoryPath}/${id}-${slug}/`;
 }
 
-// --- Overlappende tiltak (gjensidig ekskluderende eller delvis overlappende) ---
-// Nøkkel = tiltaks-ID prefix (f.eks. "T04"), verdi = liste med overlappende tiltaks-IDer
-// Merk: Dette er eksempler - utfylles basert på Mdir's analyse
-const CONFLICTS = {
-  // Transport: Alternative måter å redusere biltrafikk
-  "T04": ["T05", "T06"], // Gange/sykkel vs kollektiv
-  "T05": ["T04", "T06"], // Kollektiv kort vs gange eller lang
-  "T06": ["T04", "T05"], // Kollektiv lang vs gange eller kort
-  
-  // Sjøfart: Alternative drivstoff
-  "S03": ["S04"], // Hydrogen vs biogass i sjøfart
-  "S04": ["S03"],
-  
-  // Industri: CCS vs elektrifisering kan delvis overlappe
-  "I02": ["I06"], // CCS på industri vs elektrifisering
-  "I06": ["I02"],
-};
+// --- Overlappende tiltak (delvis overlappende eller alternative løsninger) ---
+// Hver konflikt har en beskrivelse som forklarer hvorfor tiltakene overlapper
+const CONFLICT_PAIRS = [
+  {
+    ids: ["T04", "T05", "T06"],
+    description: "Gange/sykkel, kollektiv kort og kollektiv lang – alle reduserer biltrafikk og konkurrerer delvis om de samme reisene"
+  },
+  {
+    ids: ["S03", "S04"],
+    description: "Hydrogen og biogass i sjøfart – alternative nullutslippsdrivstoff som konkurrerer om samme fartøysegment"
+  },
+  {
+    ids: ["I02", "I06"],
+    description: "CCS på industri og elektrifisering – begge reduserer utslipp fra samme prosesser, men på ulike måter"
+  },
+];
 
 // Hjelpefunksjon for å hente tiltaks-ID fra tittel
 function getMeasureId(title) {
@@ -695,31 +694,28 @@ export default function KlimakurPrestigeDashboard() {
 
   // Sjekk konflikter mellom valgte tiltak
   function checkConflicts(selectedSet) {
-    const conflicts = [];
-    const selectedIds = Array.from(selectedSet).map(title => ({
-      title,
-      id: getMeasureId(title)
-    })).filter(m => m.id);
+    const warnings = [];
+    const selectedIds = new Set(
+      Array.from(selectedSet)
+        .map(title => getMeasureId(title))
+        .filter(Boolean)
+    );
     
-    for (const measure of selectedIds) {
-      const conflictingIds = CONFLICTS[measure.id] || [];
-      for (const conflictId of conflictingIds) {
-        const conflictingMeasure = selectedIds.find(m => m.id === conflictId);
-        if (conflictingMeasure) {
-          // Unngå duplikater (A→B og B→A)
-          const key = [measure.id, conflictId].sort().join('-');
-          if (!conflicts.some(c => c.key === key)) {
-            conflicts.push({
-              key,
-              a: measure.title,
-              b: conflictingMeasure.title,
-              message: `${measure.id} og ${conflictId} kan overlappe – potensialet kan ikke summeres fullt ut.`
-            });
-          }
+    for (const pair of CONFLICT_PAIRS) {
+      // Finn hvilke av konflikt-IDene som er valgt
+      const matchingIds = pair.ids.filter(id => selectedIds.has(id));
+      if (matchingIds.length >= 2) {
+        const key = matchingIds.sort().join('-');
+        if (!warnings.some(w => w.key === key)) {
+          warnings.push({
+            key,
+            ids: matchingIds,
+            message: pair.description
+          });
         }
       }
     }
-    return conflicts;
+    return warnings;
   }
 
   function toggleOne(id) {
@@ -805,7 +801,7 @@ export default function KlimakurPrestigeDashboard() {
             <div className="mt-4 p-4 bg-[#F3EBD9] border border-[#C9B27C]/70 rounded-2xl text-sm leading-relaxed shadow-sm">
               <p className="font-semibold text-[#2F5D3A] mb-1">Hva betyr «tiltakskost»?</p>
               <p className="text-[#2A2A2A]">
-                Tiltakskost er et samfunnsøkonomisk mål som brukes av Miljødirektoratet: summen av alle reelle kostnader 
+                Tiltakskost er en samfunnsøkonomisk indikator som brukes av Miljødirektoratet: summen av alle reelle kostnader 
                 ved et klimatiltak – som investeringer, drift og teknologikostnader – minus eventuelle samfunnsøkonomiske
                 gevinster. Resultatet fordeles på tonn CO₂‑ekvivalent redusert for å uttrykke hvor mye ressursbruk hvert
                 kutt krever. Skatter, avgifter og subsidier inngår ikke, fordi de kun flytter penger mellom aktører og ikke
@@ -1035,14 +1031,15 @@ export default function KlimakurPrestigeDashboard() {
               {/* Advarsler om overlapp */}
               {warnings.length > 0 && (
                 <div className="bg-[#FDF6E3] border border-[#C9A227]/50 rounded-xl p-3 mb-4">
-                  <p className="text-sm font-semibold text-[#8B4513] mb-2">⚠️ Mulig overlapp mellom tiltak</p>
+                  <p className="text-sm font-semibold text-[#8B4513] mb-2">Mulig overlapp mellom tiltak</p>
                   <ul className="text-xs text-[#2A2A2A]/80 space-y-1">
                     {warnings.map(w => (
                       <li key={w.key}>• {w.message}</li>
                     ))}
                   </ul>
                   <p className="text-xs text-[#2A2A2A]/60 mt-2 italic">
-                    Noen tiltak kan ikke summeres fullt ut. Dette er til informasjon – du kan fortsatt velge begge.
+                    Disse tiltakene representerer delvis overlappende eller alternative måter å oppnå samme utslippsreduksjon. 
+                    Potensialet kan derfor ikke summeres fullt ut. Du kan fortsatt velge begge for å utforske scenarioer.
                   </p>
                 </div>
               )}
