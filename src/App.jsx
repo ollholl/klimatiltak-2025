@@ -11,8 +11,6 @@ import {
   ComposedChart,
   Cell,
   LabelList,
-  LineChart,
-  Line,
 } from "recharts";
 
 // --- Referansedata for klimamål og NB25-banen --------------------------------
@@ -573,15 +571,32 @@ export default function KlimakurPrestigeDashboard() {
     })).sort((a, b) => a.kategori.localeCompare(b.kategori));
   }, [rowsSelected]);
 
-  // Data for linje-graf (utslippsbane over tid)
-  const lineChartData = useMemo(() => {
-    const { baseline1990, ref2035, emissionsWithMeasures } = targetAnalysis;
+  // Data for utslippsbane-graf (3 søyler + 2 mållinjer)
+  const emissionsChartData = useMemo(() => {
+    const { baseline1990, ref2035, refCutPercent, emissionsWithMeasures, totalCutPercent } = targetAnalysis;
     
     return [
-      { year: "1990", emissions: baseline1990, label: "1990" },
-      { year: "2023", emissions: 46.6, label: "2023" }, // Omtrentlig dagens nivå
-      { year: "NB25", emissions: ref2035, label: "2035 (NB25)" },
-      { year: "Tiltak", emissions: Math.max(0, emissionsWithMeasures), label: "2035 + tiltak" },
+      {
+        label: "1990",
+        emissions: baseline1990,
+        cutPercent: 0,
+        description: "Referanseår for klimamål",
+        color: "#8B9D77",
+      },
+      {
+        label: "2035 (NB25)",
+        emissions: ref2035,
+        cutPercent: refCutPercent,
+        description: "Forventet med vedtatt politikk",
+        color: "#C9B27C",
+      },
+      {
+        label: "2035 + tiltak",
+        emissions: Math.max(0, emissionsWithMeasures),
+        cutPercent: totalCutPercent,
+        description: "NB25 + valgte klimatiltak",
+        color: "#2F5D3A",
+      },
     ];
   }, [targetAnalysis]);
 
@@ -836,14 +851,14 @@ export default function KlimakurPrestigeDashboard() {
               </div>
             )}
 
-            {/* Linjegraf: Utslippsbane over tid */}
+            {/* Utslippsbane-graf */}
             <div className="mt-6">
-              <h4 className="text-sm font-semibold text-[#2F5D3A] mb-2">Utslippsbane: 1990 → 2035</h4>
+              <h4 className="text-sm font-semibold text-[#2F5D3A] mb-2">Utslippsnivå: 1990 → NB25 → NB25 + tiltak</h4>
               <div className="h-64 sm:h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={lineChartData} margin={{ top: 20, right: 80, bottom: 20, left: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#CBBF9F" strokeOpacity={0.4} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#2F5D3A" }} />
+                  <ComposedChart data={emissionsChartData} margin={{ top: 20, right: 80, bottom: 20, left: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#CBBF9F" strokeOpacity={0.4} vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#2F5D3A" }} />
                     <YAxis 
                       domain={[0, 55]} 
                       tick={{ fontSize: 11, fill: "#2A2A2A" }} 
@@ -854,9 +869,13 @@ export default function KlimakurPrestigeDashboard() {
                         if (!active || !payload || !payload.length) return null;
                         const data = payload[0].payload;
                         return (
-                          <div className="bg-[#F7F3E8] border border-[#C9B27C]/80 rounded-xl p-3 shadow-lg font-serif text-sm">
+                          <div className="bg-[#F7F3E8] border border-[#C9B27C]/80 rounded-xl p-3 shadow-lg font-serif text-sm max-w-xs">
                             <p className="font-semibold text-[#2F5D3A] mb-1">{data.label}</p>
                             <p>Utslipp: <span className="font-semibold">{nb(data.emissions, 1)} Mt CO₂e</span></p>
+                            {data.cutPercent > 0 && (
+                              <p className="text-xs text-[#2A2A2A]/70">{nb(data.cutPercent, 0)}% kutt fra 1990</p>
+                            )}
+                            <p className="text-xs text-[#2A2A2A]/70 mt-1 italic">{data.description}</p>
                           </div>
                         );
                       }}
@@ -890,20 +909,23 @@ export default function KlimakurPrestigeDashboard() {
                       }}
                     />
                     
-                    {/* Utslippslinje */}
-                    <Line 
-                      type="monotone" 
-                      dataKey="emissions" 
-                      stroke="#2F5D3A" 
-                      strokeWidth={3}
-                      dot={{ fill: "#2F5D3A", strokeWidth: 2, r: 5 }}
-                      activeDot={{ r: 7, fill: "#C9B27C" }}
-                    />
-                  </LineChart>
+                    {/* Søyler for utslippsnivå */}
+                    <Bar dataKey="emissions" name="Utslipp" radius={[4, 4, 0, 0]}>
+                      {emissionsChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                      <LabelList 
+                        dataKey="emissions" 
+                        position="top" 
+                        formatter={(val) => `${nb(val, 1)} Mt`}
+                        style={{ fontSize: 11, fill: "#2A2A2A", fontWeight: 600 }}
+                      />
+                    </Bar>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
               <p className="text-xs text-[#2A2A2A]/60 mt-2 text-center italic">
-                Linjen viser utslippsnivå. Stiplede linjer = 2035-mål (70% og 75% kutt fra 1990).
+                Søylene viser utslippsnivå. Stiplede linjer viser 2035-målene (70% og 75% kutt fra 1990).
               </p>
             </div>
 
