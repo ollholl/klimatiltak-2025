@@ -20,8 +20,8 @@ import {
 // Alle tiltak i KiN 2025 er TILLEGGSKUTT utover denne banen.
 //
 // Kilder:
-// - SSB: https://www.ssb.no/natur-og-miljo/miljoregnskap/statistikk/utslipp-til-luft
-// - NB25/Klimastatus og -plan: https://www.regjeringen.no/no/dokumenter/meld.-st.-1-20242025/id3066044/
+// - SSB: https://www.ssb.no/natur-og-miljo/forurensning-og-klima/statistikk/utslipp-til-luft
+// - NB25/Klimastatus og -plan: https://www.regjeringen.no/no/dokumenter/nasjonalbudsjettet-2025/id2899500/
 // - Miljødirektoratet KiN 2025: https://www.miljodirektoratet.no/publikasjoner/2025/januar-2025/klimatiltak-i-norge-kunnskapsgrunnlag-2025/
 
 const CLIMATE_CONTEXT = {
@@ -48,8 +48,8 @@ const CLIMATE_CONTEXT = {
   
   // Kilder med URL
   sources: {
-    ssb: "https://www.ssb.no/natur-og-miljo/miljoregnskap/statistikk/utslipp-til-luft",
-    nb25: "https://www.regjeringen.no/no/dokumenter/meld.-st.-1-20242025/id3066044/",
+    ssb: "https://www.ssb.no/natur-og-miljo/forurensning-og-klima/statistikk/utslipp-til-luft",
+    nb25: "https://www.regjeringen.no/no/dokumenter/nasjonalbudsjettet-2025/id2899500/",
     mdir: "https://www.miljodirektoratet.no/publikasjoner/2025/januar-2025/klimatiltak-i-norge-kunnskapsgrunnlag-2025/",
   }
 };
