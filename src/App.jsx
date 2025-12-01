@@ -1322,7 +1322,8 @@ export default function KlimakurPrestigeDashboard() {
                 </button>
                 <button
                   onClick={() => {
-                    setExpandedCategories(new Set(measuresByCategory.map(({ category }) => category)));
+                    const allCategories = measuresByCategory.map(({ category }) => category);
+                    setExpandedCategories(new Set(allCategories));
                   }}
                   className="px-3 py-1.5 rounded-xl border border-[#C9B27C] bg-[#F7F3E8] text-[#2F5D3A] hover:bg-[#EDE1C9] transition"
                 >
@@ -1341,7 +1342,12 @@ export default function KlimakurPrestigeDashboard() {
             
             {/* Category-based dropdown list */}
             <div className="space-y-2">
-              {measuresByCategory.map(({ category, measures: categoryMeasures, selectedCount, totalCount }) => {
+              {measuresByCategory.length === 0 ? (
+                <div className="text-center py-8 text-[#2A2A2A]/70">
+                  <p>Ingen tiltak funnet med de valgte filtrene.</p>
+                </div>
+              ) : (
+                measuresByCategory.map(({ category, measures: categoryMeasures, selectedCount, totalCount }) => {
                 const isExpanded = expandedCategories.has(category);
                 const allSelected = categoryMeasures.every((m) => selected.has(m.t));
                 const someSelected = categoryMeasures.some((m) => selected.has(m.t)) && !allSelected;
@@ -1491,7 +1497,8 @@ export default function KlimakurPrestigeDashboard() {
                     )}
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
             
             {/* Summary */}
