@@ -324,6 +324,7 @@ export default function KlimakurPrestigeDashboard() {
   const [search, setSearch] = useState("");
   const [sortColumn, setSortColumn] = useState(null); // null | "potensialKt" | "tiltak" | "kategori" | "kostnad"
   const [sortDirection, setSortDirection] = useState("desc"); // "asc" | "desc"
+  const [expandedCategories, setExpandedCategories] = useState(new Set()); // Track which categories are expanded
 
   // --- Utvalg av tiltak (huke av/på) ----------------------------------------
   // Default: ingen tiltak valgt (start fra blankt ark)
@@ -771,6 +772,36 @@ export default function KlimakurPrestigeDashboard() {
     }
     return sortDirection === "asc" ? <span>↑</span> : <span>↓</span>;
   }
+
+  // Toggle category expansion
+  function toggleCategory(category) {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  }
+
+  // Group measures by category
+  const measuresByCategory = useMemo(() => {
+    const grouped = new Map();
+    measures.forEach((m) => {
+      if (!grouped.has(m.c)) {
+        grouped.set(m.c, []);
+      }
+      grouped.get(m.c).push(m);
+    });
+    return Array.from(grouped.entries()).map(([category, measures]) => ({
+      category,
+      measures,
+      selectedCount: measures.filter((m) => selected.has(m.t)).length,
+      totalCount: measures.length,
+    }));
+  }, [measures, selected]);
 
   // --- Prestige diploma layout ----------------------------------------------
   return (
@@ -1227,7 +1258,7 @@ export default function KlimakurPrestigeDashboard() {
               </table>
           </section>
 
-          {/* Detailed measures table */}
+          {/* Detailed measures by category */}
           <section className="bg-[#F3EBD9] border border-[#C9B27C]/80 rounded-3xl p-3 sm:p-5 shadow-sm">
             <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
               <div>
@@ -1237,11 +1268,6 @@ export default function KlimakurPrestigeDashboard() {
                   {filterCostType !== "alle" && (
                     <span className="ml-1">
                       ({filterCostType === "kjent" ? "kun kjent kostnad" : "kun antatt kostnad"})
-                    </span>
-                  )}
-                  {sortColumn && (
-                    <span className="ml-1 font-semibold text-[#2F5D3A]">
-                      · Sortert: {sortColumn === "potensialKt" ? "Potensial" : sortColumn === "kostnad" ? "Kostnad" : sortColumn === "tiltak" ? "Tiltak" : "Kategori"} {sortDirection === "desc" ? "↓" : "↑"}
                     </span>
                   )}
                 </p>
@@ -1294,153 +1320,193 @@ export default function KlimakurPrestigeDashboard() {
                 >
                   Fjern alle
                 </button>
-                {sortColumn && (
-                  <button
-                    onClick={resetSort}
-                    className="px-3 py-1.5 rounded-xl border border-[#C9B27C] bg-[#F7F3E8] text-[#2F5D3A] hover:bg-[#EDE1C9] transition"
-                  >
-                    Nullstill sortering
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    setExpandedCategories(new Set(measuresByCategory.map(({ category }) => category)));
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-[#C9B27C] bg-[#F7F3E8] text-[#2F5D3A] hover:bg-[#EDE1C9] transition"
+                >
+                  Utvid alle
+                </button>
+                <button
+                  onClick={() => {
+                    setExpandedCategories(new Set());
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-[#C9B27C] bg-[#F7F3E8] text-[#2F5D3A] hover:bg-[#EDE1C9] transition"
+                >
+                  Lukk alle
+                </button>
               </div>
             </div>
-            <div className="overflow-x-auto -mx-3 sm:-mx-5 px-3 sm:px-5">
-              <table className="w-full text-sm border-collapse min-w-[800px]">
-              <thead>
-                <tr className="border-b border-[#C9B27C]/80 bg-[#EDE1C9]">
-                  <th className="py-2 pr-2 w-10 text-left">
-                    <input type="checkbox" className="h-4 w-4 accent-[#2F5D3A] border border-[#C9B27C] rounded-sm bg-[#F7F3E8] checked:bg-[#2F5D3A] checked:border-[#2F5D3A] shadow-inner"
-                      checked={allFilteredSelected}
-                      ref={(el) => {
-                        if (!el) return;
-                        el.indeterminate = !allFilteredSelected && !noneFilteredSelected;
-                      }}
-                      onChange={(e) => (e.target.checked ? selectAllFiltered() : deselectAllFiltered())}
-                    />
-                  </th>
-                  <th 
-                    className="py-2 pr-2 text-left cursor-pointer hover:bg-[#E0D2B6] transition select-none"
-                    onClick={() => handleSort("tiltak")}
-                  >
-                    <div className="flex items-center gap-1">
-                      Tiltak
-                      <SortIcon column="tiltak" />
-                    </div>
-                  </th>
-                  <th 
-                    className="py-2 pr-2 text-left cursor-pointer hover:bg-[#E0D2B6] transition select-none whitespace-nowrap"
-                    onClick={() => handleSort("kategori")}
-                  >
-                    <div className="flex items-center gap-1">
-                      Kategori
-                      <SortIcon column="kategori" />
-                    </div>
-                  </th>
-                  <th 
-                    className="py-2 pr-2 text-right cursor-pointer hover:bg-[#E0D2B6] transition select-none"
-                    onClick={() => handleSort("potensialKt")}
-                  >
-                    <div className="flex items-center justify-end gap-1">
-                      Potensial (Mt)
-                      <SortIcon column="potensialKt" />
-                    </div>
-                  </th>
-                  <th className="py-2 pr-2 text-right whitespace-nowrap" title="Kostnadsspenn fra Miljødirektoratet">Mdir (kr/t)</th>
-                  <th className="py-2 pr-2 text-right whitespace-nowrap" title="Valgt enhetskost for beregning">Valgt (kr/t)</th>
-                  <th 
-                    className="py-2 pr-2 text-right cursor-pointer hover:bg-[#E0D2B6] transition select-none"
-                    onClick={() => handleSort("kostnad")}
-                  >
-                    <div className="flex items-center justify-end gap-1">
-                      Kostnad (mrd kr)
-                      <SortIcon column="kostnad" />
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {measures.map((m, idx) => {
-                  const r = rowsMap.get(m.t);
-                  const isChecked = selected.has(m.t);
-                  if (!r) return null;
-                  const hasOverride = costOverrides[m.t] !== undefined;
-                  // Bruk unik key basert på navn, kategori og indeks for å håndtere duplikater
-                  return (
-                    <tr key={`${m.t}-${m.c}-${idx}`} className="border-b border-[#E0D2B6]">
-                      <td className="py-1 pr-2">
-                        <input type="checkbox" className="h-4 w-4 accent-[#2F5D3A] border border-[#C9B27C] rounded-sm bg-[#F7F3E8] checked:bg-[#2F5D3A] checked:border-[#2F5D3A] shadow-inner"
-                          checked={isChecked}
-                          onChange={() => toggleOne(m.t)}
+            
+            {/* Category-based dropdown list */}
+            <div className="space-y-2">
+              {measuresByCategory.map(({ category, measures: categoryMeasures, selectedCount, totalCount }) => {
+                const isExpanded = expandedCategories.has(category);
+                const allSelected = categoryMeasures.every((m) => selected.has(m.t));
+                const someSelected = categoryMeasures.some((m) => selected.has(m.t)) && !allSelected;
+                
+                return (
+                  <div key={category} className="border border-[#C9B27C]/60 rounded-xl bg-[#F7F3E8] overflow-hidden">
+                    {/* Category header */}
+                    <button
+                      onClick={() => toggleCategory(category)}
+                      className="w-full flex items-center justify-between p-3 hover:bg-[#EDE1C9] transition text-left"
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <span className="text-lg font-semibold text-[#2F5D3A]">{category}</span>
+                        <span className="text-xs text-[#2A2A2A]/70">
+                          ({selectedCount} av {totalCount} valgt)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-[#2F5D3A] border border-[#C9B27C] rounded-sm bg-white checked:bg-[#2F5D3A] checked:border-[#2F5D3A] shadow-inner"
+                          checked={allSelected}
+                          ref={(el) => {
+                            if (!el) return;
+                            el.indeterminate = someSelected;
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (allSelected) {
+                              // Deselect all in category
+                              setSelected((prev) => {
+                                const next = new Set(prev);
+                                categoryMeasures.forEach((m) => next.delete(m.t));
+                                return next;
+                              });
+                            } else {
+                              // Select all in category
+                              setSelected((prev) => {
+                                const next = new Set(prev);
+                                categoryMeasures.forEach((m) => next.add(m.t));
+                                return next;
+                              });
+                            }
+                          }}
+                          onChange={() => {}} // Controlled by onClick
                         />
-                      </td>
-                      <td className="py-1 pr-2 align-top">
-                        <a 
-                          href={getMdirUrl(m)} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="hover:text-[#2F5D3A] hover:underline"
-                          title="Åpne tiltaksark hos Miljødirektoratet"
-                        >
-                          {r.tiltak}
-                          <span className="ml-1 text-[10px] text-[#2F5D3A]/50">↗</span>
-                        </a>
-                      </td>
-                      <td className="py-1 pr-2 align-top whitespace-nowrap">{r.kategori}</td>
-                      <td className="py-1 pr-2 align-top text-right">{nb(r.potensialMt, 3)}</td>
-                      <td className="py-1 pr-2 align-top text-right text-[#2A2A2A]/70 text-xs">
-                        {r.costRange || <span className="italic">ikke vurdert</span>}
-                      </td>
-                      <td className="py-1 pr-2 align-top text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <input
-                            type="number"
-                            className={classNames(
-                              "w-20 border rounded-lg px-2 py-1 text-right text-sm focus:outline-none focus:ring-1 focus:ring-[#2F5D3A]",
-                              hasOverride 
-                                ? "border-[#2F5D3A] bg-[#E8F0E8]" 
-                                : r.hasUnknownCost
-                                  ? "border-[#C9A227]/70 bg-[#FDF6E3]"
-                                  : "border-[#C9B27C]/50 bg-[#F7F3E8]"
-                            )}
-                            value={r.enhetskost}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setCostOverrides((prev) => ({ ...prev, [m.t]: val }));
-                            }}
-                            step={100}
-                          />
-                          {hasOverride && (
-                            <button
-                              onClick={() => {
-                                setCostOverrides((prev) => {
-                                  const next = { ...prev };
-                                  delete next[m.t];
-                                  return next;
-                                });
-                              }}
-                              className="text-[#2F5D3A] hover:text-[#1a3a20] text-xs"
-                              title={r.originalCost === null ? "Tilbakestill til standardantakelse" : "Tilbakestill til original"}
-                            >
-                              ✕
-                            </button>
-                          )}
+                        <span className="text-[#2F5D3A] text-sm">
+                          {isExpanded ? "▼" : "▶"}
+                        </span>
+                      </div>
+                    </button>
+                    
+                    {/* Category content (dropdown) */}
+                    {isExpanded && (
+                      <div className="border-t border-[#C9B27C]/40 bg-white">
+                        <div className="p-3 space-y-2 max-h-96 overflow-y-auto">
+                          {categoryMeasures.map((m, idx) => {
+                            const r = rowsMap.get(m.t);
+                            const isChecked = selected.has(m.t);
+                            if (!r) return null;
+                            const hasOverride = costOverrides[m.t] !== undefined;
+                            
+                            return (
+                              <div
+                                key={`${m.t}-${m.c}-${idx}`}
+                                className="flex items-start gap-3 p-2 rounded-lg hover:bg-[#F7F3E8] transition"
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 mt-1 accent-[#2F5D3A] border border-[#C9B27C] rounded-sm bg-white checked:bg-[#2F5D3A] checked:border-[#2F5D3A] shadow-inner flex-shrink-0"
+                                  checked={isChecked}
+                                  onChange={() => toggleOne(m.t)}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                                    <div className="flex-1 min-w-0">
+                                      <a
+                                        href={getMdirUrl(m)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="hover:text-[#2F5D3A] hover:underline text-sm font-medium text-[#2A2A2A]"
+                                        title="Åpne tiltaksark hos Miljødirektoratet"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {r.tiltak}
+                                        <span className="ml-1 text-[10px] text-[#2F5D3A]/50">↗</span>
+                                      </a>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs text-[#2A2A2A]/70">
+                                      <span className="whitespace-nowrap">
+                                        Potensial: <span className="font-semibold text-[#2F5D3A]">{nb(r.potensialMt, 3)} Mt</span>
+                                      </span>
+                                      <span className="whitespace-nowrap">
+                                        Kostnad: <span className="font-semibold text-[#2F5D3A]">{nb(r.sumMrd, 2)} mrd kr</span>
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-1 text-xs">
+                                    <span className="text-[#2A2A2A]/60">
+                                      Mdir: {r.costRange || <span className="italic">ikke vurdert</span>}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[#2A2A2A]/60">Valgt:</span>
+                                      <input
+                                        type="number"
+                                        className={classNames(
+                                          "w-20 border rounded px-2 py-0.5 text-right text-xs focus:outline-none focus:ring-1 focus:ring-[#2F5D3A]",
+                                          hasOverride
+                                            ? "border-[#2F5D3A] bg-[#E8F0E8]"
+                                            : r.hasUnknownCost
+                                              ? "border-[#C9A227]/70 bg-[#FDF6E3]"
+                                              : "border-[#C9B27C]/50 bg-[#F7F3E8]"
+                                        )}
+                                        value={r.enhetskost}
+                                        onChange={(e) => {
+                                          const val = Number(e.target.value);
+                                          setCostOverrides((prev) => ({ ...prev, [m.t]: val }));
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        step={100}
+                                      />
+                                      <span className="text-[#2A2A2A]/60">kr/t</span>
+                                      {hasOverride && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setCostOverrides((prev) => {
+                                              const next = { ...prev };
+                                              delete next[m.t];
+                                              return next;
+                                            });
+                                          }}
+                                          className="text-[#2F5D3A] hover:text-[#1a3a20] text-xs"
+                                          title={r.originalCost === null ? "Tilbakestill til standardantakelse" : "Tilbakestill til original"}
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      </td>
-                      <td className="py-1 pr-2 align-top text-right">{nb(r.sumMrd, 2)}</td>
-                    </tr>
-                  );
-                })}
-                <tr className="font-semibold border-t border-[#C9B27C]/80">
-                  <td className="py-2 pr-2" colSpan={3}>
-                    Sum (viste)
-                  </td>
-                  <td className="py-2 pr-2 text-right">{nb(displayedTotals.potMt, 2)}</td>
-                  <td></td>
-                  <td></td>
-                  <td className="py-2 pr-2 text-right">{nb(displayedTotals.cost, 2)}</td>
-                </tr>
-              </tbody>
-            </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Summary */}
+            <div className="mt-4 p-3 bg-[#EDE1C9] border border-[#C9B27C]/60 rounded-xl">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-[#2F5D3A]">Sum (viste tiltak)</span>
+                <div className="flex items-center gap-4">
+                  <span>
+                    Potensial: <span className="font-semibold">{nb(displayedTotals.potMt, 2)} Mt</span>
+                  </span>
+                  <span>
+                    Kostnad: <span className="font-semibold">{nb(displayedTotals.cost, 2)} mrd kr</span>
+                  </span>
+                </div>
+              </div>
             </div>
           </section>
 
