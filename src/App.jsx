@@ -327,26 +327,10 @@ export default function KlimakurPrestigeDashboard() {
   const [expandedCategories, setExpandedCategories] = useState(new Set()); // Track which categories are expanded
 
   // --- Utvalg av tiltak (huke av/på) ----------------------------------------
-  // Default: ingen tiltak valgt (start fra blankt ark)
+  // Default: alle tiltak valgt ved oppstart
   const [selected, setSelected] = useState(() => {
-    // Hvis URL/localStorage har liste over selected (s), bruk disse
-    if (initialUrlState?.s) {
-      const selectedSet = new Set();
-      initialUrlState.s.forEach((idx) => {
-        if (MEASURES[idx]) selectedSet.add(MEASURES[idx].t);
-      });
-      return selectedSet;
-    }
-    // Bakoverkompatibilitet: hvis gammel format (x = deselected), konverter
-    if (initialUrlState?.x) {
-      const allSet = new Set(MEASURES.map((m) => m.t));
-      initialUrlState.x.forEach((idx) => {
-        if (MEASURES[idx]) allSet.delete(MEASURES[idx].t);
-      });
-      return allSet;
-    }
-    // Default: tomt (ingen valgt)
-    return new Set();
+    // Alltid start med alle tiltak valgt
+    return new Set(MEASURES.map((m) => m.t));
   });
   
   // Advarsler for overlappende tiltak
@@ -356,20 +340,16 @@ export default function KlimakurPrestigeDashboard() {
   const [linkCopied, setLinkCopied] = useState(false);
   
   // Lagre til localStorage når state endres (men ikke til URL)
+  // Note: Vi lagrer ikke selected state lenger, siden vi alltid starter med alle valgt
   useEffect(() => {
-    const selectedIndices = MEASURES
-      .map((m, i) => selected.has(m.t) ? i : null)
-      .filter((i) => i !== null);
-    
     const state = {};
-    if (selectedIndices.length > 0) state.s = selectedIndices;
     if (Object.keys(costOverrides).length > 0) state.o = costOverrides;
     if (defaultUnknownCost !== 1500) state.d = defaultUnknownCost;
     if (selectedTarget !== "70% kutt") state.t = selectedTarget;
     
     // Lagre til localStorage (men IKKE til URL - det skjer kun ved "Del utvalg")
     saveToStorage(state);
-  }, [selected, costOverrides, defaultUnknownCost, selectedTarget]);
+  }, [costOverrides, defaultUnknownCost, selectedTarget]);
   
   // Kopier delbar lenke til utklippstavle
   const copyShareLink = async () => {
@@ -676,7 +656,7 @@ export default function KlimakurPrestigeDashboard() {
     setCostOverrides({});
     setDefaultUnknownCost(1500);
     setSelectedTarget("70% kutt");
-    setSelected(new Set()); // Start fra blankt ark
+    setSelected(new Set(MEASURES.map((m) => m.t))); // Start med alle valgt
     setFilterCat("Alle");
     setFilterCostType("alle");
     setSearch("");
@@ -1086,7 +1066,7 @@ export default function KlimakurPrestigeDashboard() {
                 </div>
               )}
               
-              {/* Info om blankt ark */}
+              {/* Info om ingen tiltak valgt */}
               {rowsSelected.length === 0 && (
                 <div className="text-sm text-[#2A2A2A]/70 bg-[#F7F3E8] border border-[#C9B27C]/30 rounded-xl p-3">
                   <span className="font-semibold text-[#2F5D3A]">Ingen tiltak valgt.</span> Du starter fra NB25-referansebanen (31,7 Mt i 2035). 
@@ -1134,7 +1114,7 @@ export default function KlimakurPrestigeDashboard() {
                   className="px-3 py-1.5 rounded-xl text-sm border border-[#8B4513]/50 bg-[#F7F3E8] text-[#8B4513] hover:bg-[#EDE1C9] transition"
                   title="Nullstill alle valg, overstyringer og innstillinger"
                 >
-                  ↺ Blankt ark
+                  ↺ Nullstill
                 </button>
               </div>
             </div>
@@ -1380,8 +1360,10 @@ export default function KlimakurPrestigeDashboard() {
                   
                   Array.from(grouped.entries()).forEach(([category, categoryMeasures]) => {
                     const isExpanded = expandedCategories.has(category);
-                    const allSelected = categoryMeasures.every((m) => selected.has(m.t));
-                    const someSelected = categoryMeasures.some((m) => selected.has(m.t)) && !allSelected;
+                    // Get ALL measures in this category (not just filtered ones)
+                    const allMeasuresInCategory = MEASURES.filter((m) => m.c === category);
+                    const allSelected = allMeasuresInCategory.every((m) => selected.has(m.t));
+                    const someSelected = allMeasuresInCategory.some((m) => selected.has(m.t)) && !allSelected;
                     
                     // Calculate totals for this category (only selected measures)
                     const selectedInCategory = categoryMeasures.filter((m) => selected.has(m.t));
@@ -1406,21 +1388,28 @@ export default function KlimakurPrestigeDashboard() {
                             checked={allSelected && !someSelected}
                             ref={(el) => {
                               if (!el) return;
-                              el.indeterminate = someSelected;
+                              // Indeterminate has priority - when true, checked should be false
+                              if (someSelected) {
+                                el.indeterminate = true;
+                                el.checked = false;
+                              } else {
+                                el.indeterminate = false;
+                                el.checked = allSelected;
+                              }
                             }}
                             onChange={(e) => {
-                              if (e.target.checked || someSelected) {
+                              if (someSelected || e.target.checked) {
                                 // Select all if clicking when indeterminate or unchecked
                                 setSelected((prev) => {
                                   const next = new Set(prev);
-                                  categoryMeasures.forEach((m) => next.add(m.t));
+                                  allMeasuresInCategory.forEach((m) => next.add(m.t));
                                   return next;
                                 });
                               } else {
                                 // Deselect all
                                 setSelected((prev) => {
                                   const next = new Set(prev);
-                                  categoryMeasures.forEach((m) => next.delete(m.t));
+                                  allMeasuresInCategory.forEach((m) => next.delete(m.t));
                                   return next;
                                 });
                               }
