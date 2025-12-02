@@ -1403,19 +1403,21 @@ export default function KlimakurPrestigeDashboard() {
                           <input
                             type="checkbox"
                             className="h-3.5 w-3.5 accent-[#2F5D3A] border border-[#2A2A2A]/30 rounded-sm bg-white checked:bg-[#2F5D3A] checked:border-[#2F5D3A]"
-                            checked={allSelected}
+                            checked={allSelected && !someSelected}
                             ref={(el) => {
                               if (!el) return;
                               el.indeterminate = someSelected;
                             }}
                             onChange={(e) => {
-                              if (e.target.checked) {
+                              if (e.target.checked || someSelected) {
+                                // Select all if clicking when indeterminate or unchecked
                                 setSelected((prev) => {
                                   const next = new Set(prev);
                                   categoryMeasures.forEach((m) => next.add(m.t));
                                   return next;
                                 });
                               } else {
+                                // Deselect all
                                 setSelected((prev) => {
                                   const next = new Set(prev);
                                   categoryMeasures.forEach((m) => next.delete(m.t));
