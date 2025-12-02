@@ -1362,8 +1362,9 @@ export default function KlimakurPrestigeDashboard() {
                     const isExpanded = expandedCategories.has(category);
                     // Get ALL measures in this category (not just filtered ones)
                     const allMeasuresInCategory = MEASURES.filter((m) => m.c === category);
+                    // If any measure in category is selected, show checkmark (simpler logic)
+                    const anySelected = allMeasuresInCategory.some((m) => selected.has(m.t));
                     const allSelected = allMeasuresInCategory.every((m) => selected.has(m.t));
-                    const someSelected = allMeasuresInCategory.some((m) => selected.has(m.t)) && !allSelected;
                     
                     // Calculate totals for this category (only selected measures)
                     const selectedInCategory = categoryMeasures.filter((m) => selected.has(m.t));
@@ -1385,28 +1386,17 @@ export default function KlimakurPrestigeDashboard() {
                           <input
                             type="checkbox"
                             className="h-3.5 w-3.5 accent-[#2F5D3A] border border-[#2A2A2A]/30 rounded-sm bg-white checked:bg-[#2F5D3A] checked:border-[#2F5D3A]"
-                            checked={allSelected && !someSelected}
-                            ref={(el) => {
-                              if (!el) return;
-                              // Indeterminate has priority - when true, checked should be false
-                              if (someSelected) {
-                                el.indeterminate = true;
-                                el.checked = false;
-                              } else {
-                                el.indeterminate = false;
-                                el.checked = allSelected;
-                              }
-                            }}
+                            checked={anySelected}
                             onChange={(e) => {
-                              if (someSelected || e.target.checked) {
-                                // Select all if clicking when indeterminate or unchecked
+                              if (e.target.checked) {
+                                // Select all in category
                                 setSelected((prev) => {
                                   const next = new Set(prev);
                                   allMeasuresInCategory.forEach((m) => next.add(m.t));
                                   return next;
                                 });
                               } else {
-                                // Deselect all
+                                // Deselect all in category
                                 setSelected((prev) => {
                                   const next = new Set(prev);
                                   allMeasuresInCategory.forEach((m) => next.delete(m.t));
